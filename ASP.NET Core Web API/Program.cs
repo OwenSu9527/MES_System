@@ -10,6 +10,18 @@ var builder = WebApplication.CreateBuilder(args);
 // 注意：所有的 builder.Services.Add... 都要寫在 builder.Build() 之前
 // ==========================================
 
+// [Day 4 新增] 註冊 CORS 服務
+// 定義一個政策名稱叫做 "AllowAll"
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()  // 允許任何來源 (e.g. 你的 HTML 檔)
+              .AllowAnyMethod()  // 允許任何 HTTP 方法 (GET, POST...)
+              .AllowAnyHeader(); // 允許任何標頭
+    });
+});
+
 // 加入框架基礎服務 (Controller, Swagger)
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -46,6 +58,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// [Day 4 新增] 套用 CORS 政策
+// 重要：這行建議放在 UseAuthorization 之前
+app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
