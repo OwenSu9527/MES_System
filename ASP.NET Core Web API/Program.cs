@@ -1,7 +1,8 @@
-using MES_System.Infrastructure;
-using Microsoft.EntityFrameworkCore;
 using MES_System.Application.Interfaces;
+using MES_System.Application.Services;
+using MES_System.Infrastructure;
 using MES_System.Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +39,10 @@ builder.Services.AddDbContext<MesDbContext>(options =>
 
 // [Day 3] 註冊 Repository (依賴注入)
 builder.Services.AddScoped<IEquipmentRepository, EquipmentRepository>();
+
+// [Day 7] 註冊 WorkOrder 相關服務
+builder.Services.AddScoped<IWorkOrderRepository, WorkOrderRepository>();
+builder.Services.AddScoped<IWorkOrderService, WorkOrderService>();
 
 // ==========================================
 // 2. 建置應用程式 (Build)
