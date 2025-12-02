@@ -28,8 +28,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // [Day 2] 註冊 DbContext (使用 In-Memory Database)
+//builder.Services.AddDbContext<MesDbContext>(options =>
+//    options.UseInMemoryDatabase("MesDb"));
+
+// [Day 6] DB First 連線設定
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<MesDbContext>(options =>
-    options.UseInMemoryDatabase("MesDb"));
+    options.UseSqlServer(connectionString));
 
 // [Day 3] 註冊 Repository (依賴注入)
 builder.Services.AddScoped<IEquipmentRepository, EquipmentRepository>();
@@ -41,16 +46,15 @@ builder.Services.AddScoped<IEquipmentRepository, EquipmentRepository>();
 var app = builder.Build();
 
 // ==========================================
-// 3. 設定 HTTP 請求管線 (Middleware)
+// 3. 設定 HTTP 請求管線 (Middleware) Code First ：依賴程式碼 (EnsureCreated) 「生出」一個資料庫和種子資料。
 // ==========================================
-
 // [Day 3] 確保資料庫已建立 (觸發種子資料)
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<MesDbContext>();
-    context.Database.EnsureCreated();
-}
+//using (var scope = app.Services.CreateScope())
+//{
+//    var services = scope.ServiceProvider;
+//    var context = services.GetRequiredService<MesDbContext>();
+//    context.Database.EnsureCreated();
+//}
 
 // 設定開發環境下的 Swagger 頁面
 if (app.Environment.IsDevelopment())

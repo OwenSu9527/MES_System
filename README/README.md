@@ -2,8 +2,46 @@
 
 ## 專案簡介
 這是一個模擬半導體/電子組裝產業的 **製造執行系統 (MES)**。
-專案採用 **Agile 敏捷開發** 模式，目前處於 **Sprint 1** 階段。
+專案採用 **Agile 敏捷開發** 模式，目前處於 **Sprint 2** 階段。
 目標是實現從「設備數據採集」到「戰情室監控」以及「工單管理」的完整流程。
+
+## “功能”
+(待補)
+
+## 🚀 快速開始 (Getting Started)
+
+**前置需求 (Prerequisites)**
+
+* .NET 8.0 SDK
+* Visual Studio 2022 或 VS Code
+* SQL Server (Express 或 Developer Edition)
+
+**安裝與執行 (Installation)**
+
+1. Clone 專案
+```Bash
+git clone [https://github.com/您的帳號/您的專案名.git](https://github.com/您的帳號/您的專案名.git)
+cd MES_System
+```
+
+2. 還原套件
+```Bash
+dotnet restore
+```
+
+3. 設定資料庫 (Sprint 2)
+* 請確認 MES_System.WebAPI/appsettings.json 中的 ConnectionStrings 指向您的 SQL Server 實體。
+* 系統啟動時會自動讀取 CSV 資料並建立資料庫 (Code First)。
+
+4. 執行後端 API
+```
+cd MES_System.WebAPI
+dotnet run
+```
+API 文件位址: http://localhost:5289/swagger (依實際 Port 為準)
+
+5. 執行前端
+* 直接瀏覽器開啟 dashboard.html 即可連接至本地 API。
 
 ## 🛠 技術堆疊 (Tech Stack)
 * **Backend**: C# .NET 8 Web API
@@ -13,7 +51,18 @@
 * **Tools**: Git, Swagger UI
 
 ---
+📂 專案結構 (Project Structure)
 
+本專案遵循洋蔥式架構原則：
+```
+MES_System/
+├── MES_System.Domain          # 核心實體 (Equipment, WorkOrder) - 無依賴
+├── MES_System.Application     # 應用邏輯 (Interfaces, DTOs, Services)
+├── MES_System.Infrastructure  # 實作層 (EF Core DbContext, Repositories, CSV Seeder)
+└── MES_System.WebAPI          # 進入點 (Controllers, DI Setup)
+```
+
+---
 ## 系統架構圖 (System Architecture) 📐
 
 ```mermaid
@@ -73,5 +122,13 @@ graph TD
 - [ ] 設計工單 (Work Order) 資料庫 Schema
 - [ ] 實作生產回報 API
 
-
  ---
+
+## ⚙️ 設定說明 (Configuration)
+目前 Sprint 2 階段已整合 SQL Server，請至 appsettings.json 設定 ConnectionStrings。初始資料將從 data/mes_data.csv 自動匯入。
+
+## 👤 作者 (Author)
+蘇政勳 
+Owen Su
+* GitHub: [您的 GitHub 連結]
+* LinkedIn: [您的 LinkedIn 連結]
