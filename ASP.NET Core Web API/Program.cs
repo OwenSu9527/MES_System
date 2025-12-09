@@ -44,6 +44,9 @@ builder.Services.AddScoped<IEquipmentRepository, EquipmentRepository>();
 builder.Services.AddScoped<IWorkOrderRepository, WorkOrderRepository>();
 builder.Services.AddScoped<IWorkOrderService, WorkOrderService>();
 
+// [Day 8] 註冊 WIP Repository
+builder.Services.AddScoped<IWipRepository, WipRepository>();
+
 // ==========================================
 // 2. 建置應用程式 (Build)
 // 這行指令就像一道牆，牆前面是準備材料，牆後面是開始運作
