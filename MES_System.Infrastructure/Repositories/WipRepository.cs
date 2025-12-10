@@ -28,6 +28,11 @@ namespace MES_System.Infrastructure.Repositories
                 .FirstOrDefaultAsync(w => w.WorkOrderId == workOrderId && w.StationId == stationId);
         }
 
+        // [Day10] 取得所有在製品快照資料
+        public async Task<IEnumerable<WipSnapshot>> GetAllAsync()
+        {
+            return await _context.WipSnapshots.ToListAsync();
+        }
         public async Task AddAsync(WipSnapshot wip)
         {
             await _context.WipSnapshots.AddAsync(wip);

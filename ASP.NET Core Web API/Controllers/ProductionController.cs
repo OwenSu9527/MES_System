@@ -2,6 +2,7 @@
 using MES_System.Application.DTOs;
 using MES_System.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using MES_System.Infrastructure.Repositories;
 
 namespace MES_System.WebAPI.Controllers
 {
@@ -10,10 +11,19 @@ namespace MES_System.WebAPI.Controllers
     public class ProductionController : ControllerBase
     {
         private readonly IWorkOrderService _service;
+        private readonly IWipRepository _wipRepo; // [Day 10 新增]
 
-        public ProductionController(IWorkOrderService service)
+        // (舊有)
+        //public ProductionController(IWorkOrderService service)
+        //{
+        //    _service = service;
+        //}
+
+        // (新)修改建構子，注入 IWipRepository
+        public ProductionController(IWorkOrderService service, IWipRepository wipRepo)
         {
             _service = service;
+            _wipRepo = wipRepo;
         }
 
         // POST: api/Production/report
@@ -39,6 +49,14 @@ namespace MES_System.WebAPI.Controllers
                 // 回傳 500 Internal Server Error
                 return StatusCode(500, $"系統內部錯誤: {ex.Message}");
             }
+        }
+        // [Day 10 新增] 取得 WIP 概況
+        // GET: api/Production/wip
+        [HttpGet("wip")]
+        public async Task<IActionResult> GetWipOverview()
+        {
+            var data = await _wipRepo.GetAllAsync();
+            return Ok(data);
         }
     }
 }

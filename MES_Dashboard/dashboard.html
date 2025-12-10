@@ -3,125 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MES 戰情室</title>
+    <title>MES 智慧戰情室</title>
     <style>
-        /* 簡單的 CSS 樣式 */
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; padding: 20px; }
-        h1 { text-align: center; color: #333; }
+        :root { --primary: #2563eb; --success: #22c55e; --warning: #f59e0b; --danger: #ef4444; --bg: #f3f4f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #1f2937; }
+        h1 { text-align: center; margin-bottom: 30px; font-weight: 800; color: #111827; }
         
-        /* 格狀佈局 (Grid System) */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        /* 機台卡片樣式 */
-        .machine-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
-            transition: transform 0.2s;
-        }
-        .machine-card:hover { transform: translateY(-5px); }
+        /* 佈局容器 */
+        .container { max-width: 1200px; margin: 0 auto; display: grid; gap: 20px; }
         
-        .machine-name { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; }
-        .machine-location { color: #666; margin-bottom: 15px; }
+        /* 區塊標題 */
+        .section-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); padding-left: 10px; }
 
-        /* 狀態燈號樣式 */
-        .status-indicator {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            color: white;
-            font-weight: bold;
-        }
+        /* 卡片共用樣式 */
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 
-        /* 根據狀態變色 (對應 Enum) */
-        .status-idle { background-color: #f6ad55; }    /* 黃色 */
-        .status-running { background-color: #48bb78; } /* 綠色 */
-        .status-down { background-color: #f56565; }    /* 紅色 */
-        .status-repair { background-color: #4299e1; }  /* 藍色 */
+        /* 機台監控區 (Grid) */
+        .machine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .machine-card { text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 0.875rem; font-weight: 600; margin-top: 10px; color: white;}
+        .status-0 { background-color: var(--warning); } /* Idle */
+        .status-1 { background-color: var(--success); } /* Running */
+        .status-2 { background-color: var(--danger); }  /* Down */
+
+        /* 工單列表區 */
+        .wo-list { display: flex; flex-direction: column; gap: 10px; }
+        .wo-item { border-bottom: 1px solid #f3f4f6; padding-bottom: 10px; }
+        .progress-bg { background-color: #e5e7eb; border-radius: 99px; height: 10px; width: 100%; margin-top: 5px; overflow: hidden; }
+        .progress-bar { background-color: var(--primary); height: 100%; transition: width 0.5s ease; }
+        
+        /* WIP 圖表區 (簡單的長條圖) */
+        .wip-chart { display: flex; align-items: flex-end; gap: 20px; height: 200px; padding-top: 20px; border-bottom: 2px solid #ccc;}
+        .bar-container { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+        .bar { background-color: var(--warning); width: 60%; margin: 0 auto; border-radius: 5px 5px 0 0; transition: height 0.5s; min-height: 2px; }
+        .bar-label { margin-top: 5px; font-weight: bold; font-size: 0.9rem; }
+        .bar-value { margin-bottom: 5px; font-weight: bold; }
 
     </style>
 </head>
 <body>
 
-    <h1>🏭 MES 即時監控看板</h1>
-    <div id="app" class="dashboard-grid">
-        <p>載入中...</p>
+    <h1>🏭 MES 智慧製造戰情室</h1>
+
+    <div class="container">
+        
+        <div class="card">
+            <div class="section-title">設備狀態監控 (Equipment Status)</div>
+            <div id="machine-container" class="machine-grid">載入中...</div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">生產工單進度 (Active Work Orders)</div>
+            <div id="wo-container" class="wo-list">載入中...</div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">產線在製品堆積 (WIP Level)</div>
+            <div id="wip-container" class="wip-chart">載入中...</div>
+        </div>
+
     </div>
 
     <script>
-        // ==========================================
-        // 重要：請將此處的 PORT 修改為您 Swagger 網址上的 PORT
-        // 例如 Swagger 是 http://localhost:5289/swagger... 則填入 5289
-        // ==========================================
-        const API_URL = 'http://localhost:5289/api/Equipment';
+        // 設定 API 基礎網址 (請依據您的 Swagger Port 修改)
+        const BASE_URL = 'http://localhost:5289/api';
 
-        // 狀態對應表 (前端對應後端 Enum)
-        // 0: Idle, 1: Running, 2: Down, 3: Repair
-        const statusMap = {
-            0: { text: '閒置 (Idle)', class: 'status-idle' },
-            1: { text: '運作中 (Running)', class: 'status-running' },
-            2: { text: '故障 (Down)', class: 'status-down' },
-            3: { text: '維修中 (Repair)', class: 'status-repair' }
-        };
+        // 啟動自動更新
+        fetchData();
+        setInterval(fetchData, 5000); // 每 5 秒更新一次
 
-        // 讀取資料函式
         async function fetchData() {
             try {
-                const response = await fetch(API_URL);
-                
-                if (!response.ok) {
-                    throw new Error('網路回應不正常');
-                }
+                // 平行呼叫三支 API
+                const [eqRes, woRes, wipRes] = await Promise.all([
+                    fetch(`${BASE_URL}/Equipment`),
+                    fetch(`${BASE_URL}/WorkOrder`),
+                    fetch(`${BASE_URL}/Production/wip`)
+                ]);
 
-                const data = await response.json();
-                renderDashboard(data);
+                const equipments = await eqRes.json();
+                const workOrders = await woRes.json();
+                const wips = await wipRes.json();
+
+                renderMachines(equipments);
+                renderWorkOrders(workOrders);
+                renderWip(wips);
 
             } catch (error) {
-                console.error('API 錯誤:', error);
-                document.getElementById('app').innerHTML = `<p style="color:red">無法連線到 API。請確認後端是否已啟動，以及 Port 是否正確。<br>錯誤訊息: ${error.message}</p>`;
+                console.error("Data Fetch Error:", error);
             }
         }
 
-        // 渲染畫面函式
-        function renderDashboard(equipments) {
-            const container = document.getElementById('app');
-            container.innerHTML = ''; // 清空載入文字
-
-            equipments.forEach(eq => {
-                // 取得對應的狀態文字與顏色 Class
-                const statusInfo = statusMap[eq.status] || { text: '未知', class: 'status-idle' };
-
-                // 生成 HTML
-                const cardHtml = `
-                    <div class="machine-card">
-                        <div class="machine-name">${eq.name}</div>
-                        <div class="machine-location">📍 ${eq.location}</div>
-                        <div class="status-indicator ${statusInfo.class}">
-                            ${statusInfo.text}
-                        </div>
-                        <div style="margin-top:10px; font-size:0.8rem; color:#999;">
-                            最後更新: ${new Date(eq.lastUpdated).toLocaleTimeString()}
-                        </div>
+        // 渲染機台
+        function renderMachines(data) {
+            const container = document.getElementById('machine-container');
+            const statusText = { 0: '閒置 Idle', 1: '運作 Running', 2: '故障 Down', 3: '維修 Repair' };
+            
+            container.innerHTML = data.map(eq => `
+                <div class="machine-card">
+                    <div style="font-weight:bold; font-size:1.1rem;">${eq.name}</div>
+                    <div class="status-badge status-${eq.status}">
+                        ${statusText[eq.status] || 'Unknown'}
                     </div>
-                `;
-                container.innerHTML += cardHtml;
-            });
+                </div>
+            `).join('');
         }
 
-        // 啟動！
-        fetchData();
-        
-        // 每 5 秒自動重新整理一次 (模擬即時監控)
-        setInterval(fetchData, 5000);
+        // 渲染工單
+        function renderWorkOrders(data) {
+            const container = document.getElementById('wo-container');
+            // 只顯示 New 或 Running 的工單
+            const activeOrders = data.filter(o => o.status !== 'Completed');
 
+            if (activeOrders.length === 0) {
+                container.innerHTML = '<div style="color:#666;">目前無生產中工單</div>';
+                return;
+            }
+
+            container.innerHTML = activeOrders.map(wo => {
+                const percent = Math.min(100, Math.round((wo.currentQty / wo.targetQty) * 100));
+                return `
+                <div class="wo-item">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <strong>${wo.orderNo} (${wo.product})</strong>
+                        <span>${wo.currentQty} / ${wo.targetQty} (${wo.status})</span>
+                    </div>
+                    <div class="progress-bg">
+                        <div class="progress-bar" style="width: ${percent}%"></div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // 渲染 WIP 圖表
+        function renderWip(data) {
+            const container = document.getElementById('wip-container');
+            
+            // 簡單聚合：把相同 StationId 的數量加總 (雖然目前我們資料庫結構一個站點一張單可能有多筆，這裡簡化顯示)
+            // 實務上應該由後端 GroupBy，這裡示範前端處理
+            const stationMap = {};
+            data.forEach(w => {
+                // 如果 StationName 沒存，就用 ID 代替
+                const name = w.stationName || `Station ${w.stationId}`;
+                stationMap[name] = (stationMap[name] || 0) + w.quantity;
+            });
+
+            const html = Object.keys(stationMap).map(stationName => {
+                const qty = stationMap[stationName];
+                // 假設最大高度對應 500 個，計算百分比高度
+                const heightPercent = Math.min(100, (qty / 500) * 100); 
+                return `
+                <div class="bar-container">
+                    <div class="bar-value">${qty}</div>
+                    <div class="bar" style="height: ${heightPercent}%;"></div>
+                    <div class="bar-label">${stationName}</div>
+                </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html || '<div style="width:100%; text-align:center;">尚無 WIP 資料</div>';
+        }
     </script>
 </body>
 </html>

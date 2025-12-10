@@ -11,7 +11,10 @@ namespace MES_System.Application.Interfaces
     /// 在製品庫存 (WIP) 資料存取介面
     /// </summary>
     public interface IWipRepository
+
     {
+        // [Day 10 新增] 取得所有 WIP 快照
+        Task<IEnumerable<WipSnapshot>> GetAllAsync();
         // 根據工單ID和站點ID，找出目前的快照 (看之前有沒有堆貨)
         Task<WipSnapshot?> GetByWorkOrderAndStationAsync(int workOrderId, int stationId);
 
