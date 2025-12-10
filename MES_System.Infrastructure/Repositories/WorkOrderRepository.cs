@@ -49,5 +49,13 @@ namespace MES_System.Infrastructure.Repositories
             // 2. 執行 SQL UPDATE 指令
             await _context.SaveChangesAsync();
         }
+
+        // [Day 9 新增] 依工單號查詢 (為了效能)
+        public async Task<WorkOrder?> GetByOrderNoAsync(string orderNo)
+        {
+            // 使用 EF Core 的 FirstOrDefaultAsync
+            // 這會轉譯成 SQL: SELECT TOP 1 * FROM WorkOrders WHERE OrderNo = @orderNo
+            return await _context.WorkOrders.FirstOrDefaultAsync(w => w.OrderNo == orderNo);
+        }
     }
 }

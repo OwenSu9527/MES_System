@@ -89,11 +89,22 @@ namespace MES_System.Application.Services
         // [Day 8] 生產回報核心邏輯
         public async Task<bool> ReportProductionAsync(ProductionReportDto dto)
         {
+            // [Day 9 防呆 1] 驗證輸入數量
+            if (dto.Quantity <= 0)
+            {
+                // 實務上這裡可以拋出自定義 Exception，或回傳 false
+                // 為了簡單，我們先回傳 false (視為回報失敗)
+                return false;
+            }
+
+            // [Day 9 優化] 改用 GetByOrderNoAsync，不再撈全部資料
             // --- 步驟 1: 撈出工單 ---
             // 實務上建議在 Repository 加一個 GetByOrderNoAsync 方法效能較好
             // 為了不更動 Repository 介面，先用 GetAll + LINQ 篩選 (資料量少時沒問題)
-            var allOrders = await _orderRepo.GetAllAsync();
-            var workOrder = allOrders.FirstOrDefault(o => o.OrderNo == dto.OrderNo);
+            // 舊寫法 (Bad): var allOrders = await _orderRepo.GetAllAsync();
+            // 舊寫法 (Bad): var workOrder = allOrders.FirstOrDefault(o => o.OrderNo == dto.OrderNo);
+            // 新寫法 (Good):
+            var workOrder = await _orderRepo.GetByOrderNoAsync(dto.OrderNo);
 
             // --- 步驟 2: 防呆驗證 (Validation) ---
 
