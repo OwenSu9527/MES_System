@@ -11,5 +11,10 @@ namespace MES_System.Application.Interfaces
     {
         // 建立維修單，回傳 void (Task) 即可，或回傳建立好的物件
         Task CreateMaintenanceRequestAsync(CreateMaintenanceDto dto);
+        // [Day 14] 開始維修
+        Task StartMaintenanceAsync(int requestId);
+
+        // [Day 14] 完成維修
+        Task CompleteMaintenanceAsync(CompleteMaintenanceDto dto);
     }
 }

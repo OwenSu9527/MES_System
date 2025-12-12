@@ -33,5 +33,34 @@ namespace MES_System.WebAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        // PATCH: api/Maintenance/{id}/start
+        [HttpPatch("{id}/start")]
+        public async Task<IActionResult> StartMaintenance(int id)
+        {
+            try
+            {
+                await _service.StartMaintenanceAsync(id);
+                return Ok(new { message = "開始維修，機台狀態已變更為 Repair" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // POST: api/Maintenance/complete
+        [HttpPost("complete")]
+        public async Task<IActionResult> CompleteMaintenance(CompleteMaintenanceDto dto)
+        {
+            try
+            {
+                await _service.CompleteMaintenanceAsync(dto);
+                return Ok(new { message = "維修完成，機台已恢復為 Idle" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
