@@ -13,5 +13,8 @@ namespace MES_System.Application.Interfaces
         // 使用 Task 代表這是「非同步」操作 (Async)
         Task<IEnumerable<Equipment>> GetAllAsync();
         Task<Equipment?> GetByIdAsync(int id);
+        // [Day 12 新增] 宣告更新方法
+        // Task 代表這是非同步操作，沒有回傳值 (void)
+        Task UpdateAsync(Equipment equipment);
     }
 }

@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MES_System.Domain", "MES_Sy
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MES_System.Infrastructure", "MES_System.Infrastructure\MES_System.Infrastructure.csproj", "{9561E8B5-60C8-6796-63CD-D4545866C590}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MES_System.Application.Tests", "MES_System.Application.Tests\MES_System.Application.Tests.csproj", "{9BD6A7DA-0E1C-460F-8FE5-40475B798586}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{9561E8B5-60C8-6796-63CD-D4545866C590}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9561E8B5-60C8-6796-63CD-D4545866C590}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9561E8B5-60C8-6796-63CD-D4545866C590}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9BD6A7DA-0E1C-460F-8FE5-40475B798586}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9BD6A7DA-0E1C-460F-8FE5-40475B798586}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9BD6A7DA-0E1C-460F-8FE5-40475B798586}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9BD6A7DA-0E1C-460F-8FE5-40475B798586}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

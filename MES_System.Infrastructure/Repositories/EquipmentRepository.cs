@@ -29,5 +29,16 @@ namespace MES_System.Infrastructure.Repositories
         {
             return await _context.Equipments.FindAsync(id);
         }
+        // [Day 12 新增] 實作更新邏輯
+        public async Task UpdateAsync(Equipment equipment)
+        {
+            // 步驟 1: 告訴 EF Core 這個物件被修改了
+            // 注意：Update 方法本身不是非同步的，所以不需要 await
+            _context.Equipments.Update(equipment);
+
+            // 步驟 2: 真正的「存檔」動作
+            // 這一步才是真正連線到資料庫執行 SQL UPDATE 指令的地方，所以需要 await
+            await _context.SaveChangesAsync();
+        }
     }
 }
