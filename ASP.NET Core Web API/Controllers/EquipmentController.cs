@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using MES_System.Application.Interfaces;
 using MES_System.Domain.Entities;
 
-namespace ASP.NET_Core_Web_API.Controllers
+namespace MES_System.WebAPI.Controllers
 {
     [Route("api/[controller]")] // 設定網址路由為 /api/equipment
     [ApiController]
