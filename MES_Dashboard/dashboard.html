@@ -5,42 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MES 智慧戰情室</title>
     <style>
-        :root { --primary: #2563eb; --success: #22c55e; --warning: #f59e0b; --danger: #ef4444; --bg: #f3f4f6; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #1f2937; }
+        :root { --primary: #2563eb; --success: #22c55e; --warning: #f59e0b; --danger: #ef4444; --repair: #3b82f6; --bg: #f3f4f6; }
+        body { font-family: 'Segoe UI', "Microsoft JhengHei", sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #1f2937; }
         h1 { text-align: center; margin-bottom: 30px; font-weight: 800; color: #111827; }
         
-        /* 佈局容器 */
         .container { max-width: 1200px; margin: 0 auto; display: grid; gap: 20px; }
-        
-        /* 區塊標題 */
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .section-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); padding-left: 10px; }
 
-        /* 卡片共用樣式 */
-        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        /* 機台列表 */
+        .machine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
+        .machine-card { 
+            text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: all 0.2s;
+            position: relative; overflow: hidden;
+        }
+        .machine-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: var(--primary); }
+        .machine-card::after { content: '👆 點擊操作'; position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.05); font-size: 0.8rem; color: #666; padding: 2px 0; opacity: 0; transition: opacity 0.2s; }
+        .machine-card:hover::after { opacity: 1; }
 
-        /* 機台監控區 (Grid) */
-        .machine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-        .machine-card { text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; }
+        /* 狀態燈號 */
         .status-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 0.875rem; font-weight: 600; margin-top: 10px; color: white;}
         .status-0 { background-color: var(--warning); } /* Idle */
         .status-1 { background-color: var(--success); } /* Running */
         .status-2 { background-color: var(--danger); }  /* Down */
-		/* [Day 14 修正] 補上維修狀態的藍色 */
-        .status-3 { background-color: #3b82f6; }        /* Repair */
+        .status-3 { background-color: var(--repair); }  /* Repair (Day 15 新增) */
 
-        /* 工單列表區 */
+        /* 模態視窗 (Modal) */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+        .modal { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .modal h3 { margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }
+        .btn-group { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background: #e5e7eb; color: #374151; }
+        .btn-submit { background: var(--primary); color: white; }
+        .btn-submit:hover { opacity: 0.9; }
+
+        /* 其他原有樣式 (工單/WIP) */
         .wo-list { display: flex; flex-direction: column; gap: 10px; }
         .wo-item { border-bottom: 1px solid #f3f4f6; padding-bottom: 10px; }
         .progress-bg { background-color: #e5e7eb; border-radius: 99px; height: 10px; width: 100%; margin-top: 5px; overflow: hidden; }
         .progress-bar { background-color: var(--primary); height: 100%; transition: width 0.5s ease; }
-        
-        /* WIP 圖表區 (簡單的長條圖) */
-        .wip-chart { display: flex; align-items: flex-end; gap: 20px; height: 200px; padding-top: 20px; border-bottom: 2px solid #ccc;}
+        .wip-chart { display: flex; align-items: flex-end; gap: 20px; height: 150px; padding-top: 20px; border-bottom: 2px solid #ccc;}
         .bar-container { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
         .bar { background-color: var(--warning); width: 60%; margin: 0 auto; border-radius: 5px 5px 0 0; transition: height 0.5s; min-height: 2px; }
-        .bar-label { margin-top: 5px; font-weight: bold; font-size: 0.9rem; }
-        .bar-value { margin-bottom: 5px; font-weight: bold; }
-
     </style>
 </head>
 <body>
@@ -48,52 +58,57 @@
     <h1>🏭 MES 智慧製造戰情室</h1>
 
     <div class="container">
-        
         <div class="card">
-            <div class="section-title">設備狀態監控 (Equipment Status)</div>
+            <div class="section-title">設備狀態監控 (點擊可操作)</div>
             <div id="machine-container" class="machine-grid">載入中...</div>
         </div>
 
         <div class="card">
-            <div class="section-title">生產工單進度 (Active Work Orders)</div>
+            <div class="section-title">生產工單進度</div>
             <div id="wo-container" class="wo-list">載入中...</div>
         </div>
 
         <div class="card">
-            <div class="section-title">產線在製品堆積 (WIP Level)</div>
+            <div class="section-title">產線在製品堆積</div>
             <div id="wip-container" class="wip-chart">載入中...</div>
         </div>
+    </div>
 
+    <div id="actionModal" class="modal-overlay">
+        <div class="modal">
+            <h3 id="modalTitle">設備操作</h3>
+            <div id="modalContent">
+                </div>
+            <div class="btn-group">
+                <button class="btn-cancel" onclick="closeModal()">取消</button>
+                <button class="btn-submit" onclick="submitAction()">確定執行</button>
+            </div>
+        </div>
     </div>
 
     <script>
         // 設定 API 基礎網址 (請依據您的 Swagger Port 修改)
         const BASE_URL = 'http://localhost:5289/api';
 
-        // 啟動自動更新
+        // 當前操作的機台資料
+        let currentMachine = null;
+
+        // 啟動
         fetchData();
-        setInterval(fetchData, 5000); // 每 5 秒更新一次
+        setInterval(fetchData, 5000);
 
         async function fetchData() {
             try {
-                // 平行呼叫三支 API
                 const [eqRes, woRes, wipRes] = await Promise.all([
                     fetch(`${BASE_URL}/Equipment`),
                     fetch(`${BASE_URL}/WorkOrder`),
                     fetch(`${BASE_URL}/Production/wip`)
                 ]);
-
-                const equipments = await eqRes.json();
-                const workOrders = await woRes.json();
-                const wips = await wipRes.json();
-
-                renderMachines(equipments);
-                renderWorkOrders(workOrders);
-                renderWip(wips);
-
-            } catch (error) {
-                console.error("Data Fetch Error:", error);
-            }
+                
+                renderMachines(await eqRes.json());
+                renderWorkOrders(await woRes.json());
+                renderWip(await wipRes.json());
+            } catch (error) { console.error("Fetch Error:", error); }
         }
 
         // 渲染機台
@@ -102,8 +117,9 @@
             const statusText = { 0: '閒置 Idle', 1: '運作 Running', 2: '故障 Down', 3: '維修 Repair' };
             
             container.innerHTML = data.map(eq => `
-                <div class="machine-card">
+                <div class="machine-card" onclick='openActionModal(${JSON.stringify(eq)})'>
                     <div style="font-weight:bold; font-size:1.1rem;">${eq.name}</div>
+                    <div style="font-size:0.9rem; color:#666; margin:5px 0;">${eq.location}</div>
                     <div class="status-badge status-${eq.status}">
                         ${statusText[eq.status] || 'Unknown'}
                     </div>
@@ -111,58 +127,148 @@
             `).join('');
         }
 
-        // 渲染工單
-        function renderWorkOrders(data) {
-            const container = document.getElementById('wo-container');
-            // 只顯示 New 或 Running 的工單
-            const activeOrders = data.filter(o => o.status !== 'Completed');
+        // 開啟操作視窗 (核心邏輯)
+        function openActionModal(eq) {
+            currentMachine = eq;
+            const modal = document.getElementById('actionModal');
+            const title = document.getElementById('modalTitle');
+            const content = document.getElementById('modalContent');
+            
+            modal.style.display = 'flex';
+            title.innerText = `操作設備: ${eq.name}`;
 
+            // 根據機台狀態，顯示不同的表單
+            if (eq.status === 1 || eq.status === 0) { 
+                // Running/Idle -> 可以報修
+                content.innerHTML = `
+                    <p>目前狀態正常。是否要回報異常？</p>
+                    <div class="form-group">
+                        <label>異常代碼 (Reason Code)</label>
+                        <input type="text" id="inputReason" value="ERR-001">
+                    </div>
+                    <div class="form-group">
+                        <label>描述</label>
+                        <textarea id="inputDesc">運轉異音</textarea>
+                    </div>
+                    <input type="hidden" id="actionType" value="REPORT">
+                `;
+            } else if (eq.status === 2) {
+                // Down -> 可以開始維修
+                // 注意：這裡應該要查詢 RequestId，但為了簡化，我們先假設系統會自動抓最新的一張 Open 單
+                // 實務上需要先 GET /Maintenance/open-list
+                content.innerHTML = `
+                    <p style="color:red; font-weight:bold;">設備故障中！</p>
+                    <p>維修工程師已到場，要開始維修嗎？</p>
+                    <div class="form-group">
+                        <label>維修單 ID (模擬輸入)</label>
+                        <input type="number" id="inputRequestId" placeholder="請輸入維修單號">
+                        <small style="color:#666">請先查看 DB 或由系統自動帶入</small>
+                    </div>
+                    <input type="hidden" id="actionType" value="START">
+                `;
+            } else if (eq.status === 3) {
+                // Repair -> 可以完修
+                content.innerHTML = `
+                    <p style="color:blue; font-weight:bold;">設備維修中...</p>
+                    <div class="form-group">
+                        <label>維修單 ID (模擬輸入)</label>
+                        <input type="number" id="inputRequestId" placeholder="請輸入維修單號">
+                    </div>
+                    <div class="form-group">
+                        <label>處置對策</label>
+                        <textarea id="inputSolution">更換零件</textarea>
+                    </div>
+                    <input type="hidden" id="actionType" value="COMPLETE">
+                `;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('actionModal').style.display = 'none';
+        }
+
+        // 送出表單 (呼叫 API)
+        async function submitAction() {
+            const type = document.getElementById('actionType').value;
+            let url = '', method = '', body = {};
+
+            try {
+                if (type === 'REPORT') {
+                    url = `${BASE_URL}/Maintenance/request`;
+                    method = 'POST';
+                    body = {
+                        equipmentId: currentMachine.id,
+                        requestUser: "Dashboard User",
+                        reasonCode: document.getElementById('inputReason').value,
+                        description: document.getElementById('inputDesc').value
+                    };
+                } else if (type === 'START') {
+                    const reqId = document.getElementById('inputRequestId').value;
+                    if(!reqId) return alert('請輸入維修單號');
+                    url = `${BASE_URL}/Maintenance/${reqId}/start`;
+                    method = 'PATCH';
+                } else if (type === 'COMPLETE') {
+                    const reqId = document.getElementById('inputRequestId').value;
+                    if(!reqId) return alert('請輸入維修單號');
+                    url = `${BASE_URL}/Maintenance/complete`;
+                    method = 'POST';
+                    body = {
+                        requestId: reqId,
+                        solution: document.getElementById('inputSolution').value,
+                        remark: "Dashboard Completed"
+                    };
+                }
+
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: method === 'POST' ? JSON.stringify(body) : null
+                });
+
+                if (res.ok) {
+                    alert('操作成功！');
+                    closeModal();
+                    fetchData(); // 立即更新畫面
+                } else {
+                    const err = await res.json();
+                    alert('失敗: ' + (err.message || '未知錯誤'));
+                }
+
+            } catch (e) {
+                alert('連線錯誤');
+                console.error(e);
+            }
+        }
+
+        // (渲染工單和 WIP 的函式保持不變，為節省篇幅省略，請保留您原本的程式碼)
+        function renderWorkOrders(data) { /* ...貼上原本的程式碼... */ 
+             const container = document.getElementById('wo-container');
+            const activeOrders = data.filter(o => o.status !== 'Completed');
             if (activeOrders.length === 0) {
                 container.innerHTML = '<div style="color:#666;">目前無生產中工單</div>';
                 return;
             }
-
             container.innerHTML = activeOrders.map(wo => {
-                const percent = Math.min(100, Math.round((wo.currentQty / wo.targetQty) * 100));
+                const percent = wo.targetQty > 0 ? Math.min(100, Math.round((wo.currentQty / wo.targetQty) * 100)) : 0;
                 return `
                 <div class="wo-item">
                     <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
                         <strong>${wo.orderNo} (${wo.product})</strong>
                         <span>${wo.currentQty} / ${wo.targetQty} (${wo.status})</span>
                     </div>
-                    <div class="progress-bg">
-                        <div class="progress-bar" style="width: ${percent}%"></div>
-                    </div>
-                </div>
-            `}).join('');
+                    <div class="progress-bg"><div class="progress-bar" style="width: ${percent}%"></div></div>
+                </div>`}).join('');
         }
-
-        // 渲染 WIP 圖表
-        function renderWip(data) {
+        
+        function renderWip(data) { /* ...貼上原本的程式碼... */ 
             const container = document.getElementById('wip-container');
-            
-            // 簡單聚合：把相同 StationId 的數量加總 (雖然目前我們資料庫結構一個站點一張單可能有多筆，這裡簡化顯示)
-            // 實務上應該由後端 GroupBy，這裡示範前端處理
             const stationMap = {};
-            data.forEach(w => {
-                // 如果 StationName 沒存，就用 ID 代替
-                const name = w.stationName || `Station ${w.stationId}`;
-                stationMap[name] = (stationMap[name] || 0) + w.quantity;
-            });
-
+            data.forEach(w => { const name = w.stationName || `Station ${w.stationId}`; stationMap[name] = (stationMap[name] || 0) + w.quantity; });
             const html = Object.keys(stationMap).map(stationName => {
                 const qty = stationMap[stationName];
-                // 假設最大高度對應 500 個，計算百分比高度
                 const heightPercent = Math.min(100, (qty / 500) * 100); 
-                return `
-                <div class="bar-container">
-                    <div class="bar-value">${qty}</div>
-                    <div class="bar" style="height: ${heightPercent}%;"></div>
-                    <div class="bar-label">${stationName}</div>
-                </div>
-                `;
+                return `<div class="bar-container"><div class="bar-value">${qty}</div><div class="bar" style="height: ${heightPercent}%;"></div><div class="bar-label">${stationName}</div></div>`;
             }).join('');
-
             container.innerHTML = html || '<div style="width:100%; text-align:center;">尚無 WIP 資料</div>';
         }
     </script>
