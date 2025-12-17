@@ -1,13 +1,15 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-// Day 3
+﻿// Day 3
 using MES_System.Application.Interfaces;
 using MES_System.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace MES_System.WebAPI.Controllers
 {
     [Route("api/[controller]")] // 設定網址路由為 /api/equipment
-    [ApiController]
+    [ApiController] // 標記為 API 控制器
+    [Authorize] // [Day 16]需要授權才能存取
     public class EquipmentController : ControllerBase
     {
         private readonly IEquipmentRepository _repository;

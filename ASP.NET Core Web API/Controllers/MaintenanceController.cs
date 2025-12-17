@@ -1,12 +1,14 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using MES_System.Application.DTOs;
+﻿using MES_System.Application.DTOs;
 using MES_System.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace MES_System.WebAPI.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
+    [Route("api/[controller]")] // 設定網址路由為 /api/maintenance
+    [ApiController] // 標記為 API 控制器
+    [Authorize] // [Day 16]需要授權才能存取
     public class MaintenanceController : ControllerBase
     {
         private readonly IMaintenanceService _service;

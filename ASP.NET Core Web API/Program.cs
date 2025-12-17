@@ -3,6 +3,11 @@ using MES_System.Application.Services;
 using MES_System.Infrastructure;
 using MES_System.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+// [Day 16]
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +56,65 @@ builder.Services.AddScoped<IWipRepository, WipRepository>();
 builder.Services.AddScoped<IMaintenanceRepository, MaintenanceRepository>();
 builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
 
+// [Day 16] 1. 設定 JWT 驗證服務
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+        ValidAudience = builder.Configuration["JwtSettings:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"]!))
+    };
+});
+// [Day 16] 2. 設定 Swagger 支援 Bearer Token
+builder.Services.AddSwaggerGen(c =>
+{
+    // 原本的設定方式要自行輸入 "Bearer "
+    //c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    //{
+    //    Description = "請在下方輸入: Bearer {your_token}",
+    //    Name = "Authorization",
+    //    In = ParameterLocation.Header,
+    //    Type = SecuritySchemeType.ApiKey,
+    //    Scheme = "Bearer"
+    //});
+
+    // 優化後只要輸入 Token：改用 Type = Http, Scheme = bearer
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "請直接在下方貼上 JWT Token (無需輸入 Bearer)",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http, // 改成 Http
+        Scheme = "bearer",              // 指定 Scheme
+        BearerFormat = "JWT"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] { }
+        }
+    });
+});
+
 // ==========================================
 // 2. 建置應用程式 (Build)
 // 這行指令就像一道牆，牆前面是準備材料，牆後面是開始運作
@@ -76,12 +140,15 @@ if (app.Environment.IsDevelopment())
 }
 
 // [Day 4 新增] 套用 CORS 政策
-// 重要：這行建議放在 UseAuthorization 之前
+// 重要：這行放在 UseAuthorization 之前
 app.UseCors("AllowAll");
 
-app.UseAuthorization();
+// [Day 16] 3. 啟用驗證與授權 (順序很重要!)
+app.UseAuthentication(); // 驗證：你是誰？
 
-app.MapControllers();
+app.UseAuthorization(); // 授權：你能進來嗎？
+
+app.MapControllers(); // 映射控制器路由
 
 // 啟動程式
 app.Run();

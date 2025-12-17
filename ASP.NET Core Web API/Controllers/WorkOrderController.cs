@@ -1,14 +1,16 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using MES_System.Application.DTOs;
+﻿using MES_System.Application.DTOs;
 using MES_System.Application.Interfaces;
 using MES_System.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 
 namespace MES_System.WebAPI.Controllers
 {
     [Route("api/[controller]")]// 設定網址路徑，這裡會變成 /api/WorkOrder
-    [ApiController]
+    [ApiController] // 標記為 API 控制器
+    [Authorize] // [Day 16]需要授權才能存取
     public class WorkOrderController : ControllerBase
     {
         private readonly IWorkOrderService _service;
