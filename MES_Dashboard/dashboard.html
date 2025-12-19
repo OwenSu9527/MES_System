@@ -507,11 +507,15 @@
         </div>
     </div>
 
-    <script>
+<script>
         /**
          * MES Application Logic
          * 使用單一物件 'App' 封裝邏輯，避免全域變數污染
          */
+        
+        // 1. 設定後端 API 位址 (請確認您的 Port)
+        const BASE_URL = 'http://localhost:5289/api';
+
         const App = {
             data: {
                 machines: [],
@@ -525,58 +529,84 @@
             },
             config: {
                 theme: localStorage.getItem('theme') || 'light',
-                refreshRate: 3000
+                refreshRate: 2000 // 2秒 (2000ms)，配合 Python 模擬器速度
             },
             
             init() {
                 this.applyTheme();
-                this.checkLogin();
+                this.checkLogin(); // 初始化檢查登入狀態
                 
-                // Initialize Charts if on dashboard
+                // 初始化圖表
                 this.initCharts();
                 
-                // Polling for data
+                // 定時刷新數據 (Polling)
                 setInterval(() => {
-                    if(!document.hidden && localStorage.getItem('mes_token')) this.fetchData();
+                    // 只有在網頁可見 且 有 Token 時才更新
+                    if(!document.hidden && localStorage.getItem('mes_token')) {
+                        this.fetchData();
+                    }
                 }, this.config.refreshRate);
 
-                // Event Listener for visibility change
+                // 監聽網頁可見性變化 (切回來時立即更新)
                 document.addEventListener('visibilitychange', () => {
                     if(!document.hidden) this.fetchData();
                 });
             },
 
-            // --- Authentication ---
+            // --- Authentication (身份驗證區塊) ---
+            
             checkLogin() {
                 const token = localStorage.getItem('mes_token');
                 if(token) {
+                    // 已登入
                     document.getElementById('loginModal').style.display = 'none';
                     document.getElementById('logoutBtn').classList.remove('hidden');
-                    this.fetchData(); // Initial load
+                    this.fetchData(); // 立即撈資料
                 } else {
+                    // 未登入
                     document.getElementById('loginModal').style.display = 'flex';
                 }
-            },
+            }, // <--- 注意：這個逗號很重要！
+
             async login() {
-                const u = document.getElementById('loginUser').value;
-                const p = document.getElementById('loginPass').value;
+                const username = document.getElementById('loginUser').value;
+                const password = document.getElementById('loginPass').value;
                 const btn = document.querySelector('#loginModal .btn-primary');
+                const originalText = btn.innerHTML;
                 
+                // UI Loading 狀態
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 驗證中...';
                 btn.disabled = true;
 
-                await new Promise(r => setTimeout(r, 800)); // Simulate API
+                try {
+                    // 呼叫真實後端 API
+                    const res = await fetch(`${BASE_URL}/Auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
 
-                if(u === 'admin' && p === 'admin123') {
-                    localStorage.setItem('mes_token', 'mock_token_' + Date.now());
-                    this.checkLogin();
-                    Swal.fire({ toast:true, position:'top-end', icon:'success', title:'登入成功', timer:1500, showConfirmButton:false });
-                } else {
-                    Swal.fire('登入失敗', '帳號或密碼錯誤', 'error');
+                    if (res.ok) {
+                        const data = await res.json();
+                        // 儲存真實 Token
+                        localStorage.setItem('mes_token', data.token);
+                        
+                        this.checkLogin(); // 更新 UI
+                        Swal.fire({ toast:true, position:'top-end', icon:'success', title:'登入成功', timer:1500, showConfirmButton:false });
+                    } else {
+                        // 處理錯誤
+                        const errData = await res.json().catch(() => ({})); 
+                        Swal.fire('登入失敗', errData.message || '帳號或密碼錯誤', 'error');
+                    }
+                } catch (e) {
+                    console.error("Login Error:", e);
+                    Swal.fire('連線錯誤', '無法連接到 MES 伺服器，請確認後端已啟動', 'error');
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
                 }
-                btn.innerHTML = '登入';
-                btn.disabled = false;
-            },
+            }, // <--- 這裡也要有逗號！
+
             logout() {
                 Swal.fire({
                     title: '確定登出?', icon: 'warning', showCancelButton: true, confirmButtonText: '登出', confirmButtonColor: '#ef4444'
@@ -588,12 +618,13 @@
                 });
             },
 
-            // --- Theme & UI ---
+            // --- Theme & UI (介面區塊) ---
+            
             toggleTheme() {
                 this.config.theme = this.config.theme === 'light' ? 'dark' : 'light';
                 localStorage.setItem('theme', this.config.theme);
                 this.applyTheme();
-                this.updateChartsTheme(); // Update charts color
+                this.updateChartsTheme(); 
             },
             applyTheme() {
                 document.documentElement.setAttribute('data-theme', this.config.theme);
@@ -612,49 +643,122 @@
                 if(window.innerWidth <= 768) this.toggleSidebar();
             },
             
-            // --- Core Logic ---
-            async fetchData() {
-                // Simulate Data Fetch
-                const machines = [
-                    {id:1, name:'SMT-01', status:1, rpm:1200, temp:42},
-                    {id:2, name:'SMT-02', status:1, rpm:1150, temp:40},
-                    {id:3, name:'AOI-01', status:0, rpm:0, temp:35},
-                    {id:4, name:'Reflow', status:2, rpm:0, temp:245}
-                ];
-                
-                // Add random variation
-                machines.forEach(m => {
-                    if(m.status === 1) {
-                        m.rpm += Math.floor(Math.random()*20 - 10);
-                        m.temp += Math.floor(Math.random()*4 - 2);
-                    }
-                });
-                
-                this.data.machines = machines;
-                this.renderDashboard();
-                this.renderWOs();
-            },
-            
+            // --- Core Logic (核心數據區塊) ---
+
+			async fetchData() {
+				const token = localStorage.getItem('mes_token');
+				if (!token) return; // 沒 Token 就不動作
+			
+				try {
+					const headers = { 
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${token}`
+					};
+			
+					// 平行呼叫 API
+					const [eqRes, woRes, wipRes] = await Promise.all([
+						fetch(`${BASE_URL}/Equipment`, { headers }),
+						fetch(`${BASE_URL}/WorkOrder`, { headers }),
+						fetch(`${BASE_URL}/Production/wip`, { headers })
+					]);
+					
+					// 權限檢查
+					if (eqRes.status === 401) {
+						this.logout(); // 強制登出
+						return;
+					}
+			
+					const realMachines = await eqRes.json();
+					
+					// 資料轉換 (Mapping)
+					this.data.machines = realMachines.map(m => ({
+						id: m.id,
+						name: m.name,
+						status: m.status,
+						location: m.location,
+						// 相容大小寫
+						rpm: m.rpm ?? m.RPM ?? 0,        
+						temp: m.temperature ?? m.Temperature ?? 0 
+					}));
+			
+					this.renderDashboard();
+                    // 工單和WIP暫時保留前端假資料渲染邏輯，若後端完成可開啟下方：
+                    // this.data.wos = await woRes.json(); this.renderWOs();
+			
+				} catch (error) { 
+					console.error("Fetch Error:", error); 
+				}
+			},
+
             renderDashboard() {
                 const container = document.getElementById('machine-container');
+                
+                // 定義狀態樣式對照表
                 const statusMap = {
                     0: { t:'閒置', c:'var(--warning)', i:'fa-pause', bg:'rgba(245,158,11,0.1)' },
                     1: { t:'運轉中', c:'var(--success)', i:'fa-gears', bg:'rgba(16,185,129,0.1)' },
-                    2: { t:'異常停機', c:'var(--danger)', i:'fa-triangle-exclamation', bg:'rgba(239,68,68,0.1)' }
+                    2: { t:'異常停機', c:'var(--danger)', i:'fa-triangle-exclamation', bg:'rgba(239,68,68,0.1)' },
+                    3: { t:'維修中', c:'var(--repair)', i:'fa-wrench', bg:'rgba(139,92,246,0.1)' } // 補上維修狀態
                 };
 
-                container.innerHTML = this.data.machines.map(m => {
-                    const s = statusMap[m.status];
-                    return `
-                    <div class="machine-card" onclick="App.openActionModal(${m.id})" style="border-top-color:${s.c}">
-                        <div style="background:${s.bg}; width:50px; height:50px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center;">
-                            <i class="fa-solid ${s.i}" style="color:${s.c}; font-size:1.5rem;"></i>
-                        </div>
-                        <div class="machine-name">${m.name}</div>
-                        <div class="machine-val">${m.rpm} RPM | ${m.temp}°C</div>
-                        <div class="badge" style="margin-top:12px; background:${s.bg}; color:${s.c}">${s.t}</div>
-                    </div>`;
-                }).join('');
+                // 第一次載入時，如果是 Skeleton (骨架圖)，先清空
+                if(container.querySelector('.skeleton')) {
+                    container.innerHTML = '';
+                }
+
+                this.data.machines.forEach(m => {
+                    // 1. 嘗試抓取既有的卡片 DOM
+                    let card = document.getElementById(`machine-card-${m.id}`);
+                    const s = statusMap[m.status] || statusMap[0];
+
+                    if (card) {
+                        // --- [優化核心] 卡片已存在：只更新數據與樣式，不重繪 HTML ---
+                        
+                        // 更新數值 (RPM / Temp)
+                        // 使用 querySelector 找到內部的 class 進行更新
+                        const valDiv = card.querySelector('.machine-val');
+                        if(valDiv) valDiv.innerText = `${m.rpm} RPM | ${m.temp}°C`;
+
+                        // 更新狀態標籤 (文字 & 顏色)
+                        const badge = card.querySelector('.badge');
+                        if(badge) {
+                            badge.innerText = s.t;
+                            badge.style.background = s.bg;
+                            badge.style.color = s.c;
+                        }
+
+                        // 更新卡片頂部邊框顏色
+                        card.style.borderTopColor = s.c;
+
+                        // 更新圖示與圓圈背景
+                        const iconBox = card.querySelector('.icon-box');
+                        if(iconBox) {
+                            iconBox.style.background = s.bg;
+                            const icon = iconBox.querySelector('i');
+                            // 只在狀態改變導致圖示不同時才修改 class，減少重繪
+                            if(icon && icon.className !== `fa-solid ${s.i}`) {
+                                icon.className = `fa-solid ${s.i}`;
+                                icon.style.color = s.c;
+                            }
+                        }
+
+                    } else {
+                        // --- 卡片不存在：建立全新的 HTML (只在第一次執行) ---
+                        // 注意：我們給了 div 一個 ID: machine-card-${m.id}，方便下次尋找
+                        const html = `
+                        <div id="machine-card-${m.id}" class="machine-card" onclick="App.openActionModal(${m.id})" style="border-top-color:${s.c}">
+                            <div class="icon-box" style="background:${s.bg}; width:50px; height:50px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center;">
+                                <i class="fa-solid ${s.i}" style="color:${s.c}; font-size:1.5rem;"></i>
+                            </div>
+                            <div class="machine-name">${m.name}</div>
+                            <div class="machine-val">${m.rpm} RPM | ${m.temp}°C</div>
+                            <div class="badge" style="margin-top:12px; background:${s.bg}; color:${s.c}">${s.t}</div>
+                        </div>`;
+                        
+                        // 使用 insertAdjacentHTML 比 innerHTML += 更快，且不會破壞現有 DOM 事件
+                        container.insertAdjacentHTML('beforeend', html);
+                    }
+                });
             },
 
             renderWOs() {
@@ -679,9 +783,11 @@
                 `).join('');
             },
 
-            // --- Modals ---
+            // --- Modals & Actions ---
+
             openModal(id) {
                 if(id === 'createWOModal') {
+                    // 自動生成單號
                     document.getElementById('new-wo-id').value = `WO-20231220-${String(this.data.wos.length + 1).padStart(2,'0')}`;
                 }
                 document.getElementById(id).style.display = 'flex';
@@ -703,8 +809,16 @@
                 document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
                 el.classList.add('active');
             },
+            
+            updateContext() {
+                const line = document.getElementById('lineSelect').options[document.getElementById('lineSelect').selectedIndex].text;
+                document.getElementById('dashboard-title').innerText = `${document.getElementById('plantSelect').value === 'P1' ? '新竹廠' : '台南廠'} - ${line} 監控`;
+                // Show skeleton
+                document.getElementById('machine-container').innerHTML = Array(4).fill('<div class="skeleton" style="height:150px;"></div>').join('');
+                setTimeout(() => this.fetchData(), 500);
+            },
 
-            // --- FAI System ---
+            // --- FAI System (前端模擬) ---
             openFAI(wo, prod) {
                 this.currentWO = wo;
                 document.getElementById('fai-subtitle').innerText = `${wo} | ${prod}`;
@@ -751,8 +865,12 @@
                 this.closeModal('faiModal');
                 Swal.fire('提交成功', '首件檢查報告已上傳', 'success');
             },
+            clearFAIDraft() {
+                 localStorage.removeItem(`fai_${this.currentWO}`);
+                 this.openFAI(this.currentWO, 'Product');
+            },
 
-            // --- Actions ---
+            // --- Other Actions ---
             submitNewWO() {
                 const newWO = {
                     id: document.getElementById('new-wo-id').value,
@@ -775,13 +893,6 @@
                     if(pass === '1234') Swal.fire('指令已發送', '', 'success');
                     else if(pass) Swal.fire('密碼錯誤', '', 'error');
                 }
-            },
-            updateContext() {
-                const line = document.getElementById('lineSelect').options[document.getElementById('lineSelect').selectedIndex].text;
-                document.getElementById('dashboard-title').innerText = `${document.getElementById('plantSelect').value === 'P1' ? '新竹廠' : '台南廠'} - ${line} 監控`;
-                // Show skeleton
-                document.getElementById('machine-container').innerHTML = Array(4).fill('<div class="skeleton" style="height:150px;"></div>').join('');
-                setTimeout(() => this.fetchData(), 500);
             },
 
             // --- Charts ---
@@ -809,27 +920,21 @@
             },
             updateChartsTheme() {
 				if(!this.data.charts.wip) return;
-    
-				// 使用 setTimeout 給瀏覽器一點時間完成 CSS 變數的切換渲染
 				setTimeout(() => {
 					const styles = getComputedStyle(document.body);
 					const gridColor = styles.getPropertyValue('--chart-grid').trim();
 					const textColor = styles.getPropertyValue('--chart-text').trim();
-        
-					// 更新長條圖 (WIP)
+					
 					if (this.data.charts.wip) {
 						this.data.charts.wip.options.scales.x.ticks.color = textColor;
 						this.data.charts.wip.options.scales.y.ticks.color = textColor;
 						this.data.charts.wip.options.scales.y.grid.color = gridColor;
 						this.data.charts.wip.update();
 					}
-
-					// 更新圓餅圖 (Quality) - 雖然沒有網格，但如果有圖例文字也可更新
 					if (this.data.charts.quality) {
-						// 如果圓餅圖有設定 legend 顏色，可在此處更新
 						this.data.charts.quality.update();
 					}
-				}, 50); // 延遲 50 毫秒
+				}, 50);
             }
         };
 

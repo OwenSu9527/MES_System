@@ -26,4 +26,12 @@ public partial class Equipment
     /// 最後更新時間
     /// </summary>
     public DateTime LastUpdated { get; set; }
+    /// <summary>
+    /// 轉速 (RPM - Revolutions Per Minute)
+    /// </summary>
+    public int RPM { get; set; }
+    /// <summary>
+    /// 運行溫度 (攝氏度)
+    /// </summary>
+    public double Temperature { get; set; }
 }

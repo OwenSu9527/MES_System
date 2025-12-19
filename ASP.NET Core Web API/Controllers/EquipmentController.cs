@@ -41,5 +41,29 @@ namespace MES_System.WebAPI.Controllers
 
             return Ok(equipment);
         }
+
+        // [Day 18 新增] 接收 Python 模擬器的遙測數據 (RPM, Temp)
+        // PATCH: api/equipment/5/telemetry
+        [HttpPatch("{id}/telemetry")]
+        public async Task<IActionResult> UpdateTelemetry(int id, [FromBody] Application.DTOs.UpdateTelemetryDto dto)
+        {
+            // 1. 使用 Repository 查詢機台
+            var equipment = await _repository.GetByIdAsync(id);
+
+            if (equipment == null)
+            {
+                return NotFound();
+            }
+
+            // 2. 更新數據
+            equipment.RPM = dto.Rpm;
+            equipment.Temperature = dto.Temperature;
+            equipment.LastUpdated = DateTime.Now;
+
+            // 3. 使用 Repository 存檔 (Day 13 我們有實作 UpdateAsync)
+            await _repository.UpdateAsync(equipment);
+
+            return NoContent(); // 回傳 204 No Content (代表成功但不需要回傳內容)
+        }
     }
 }
