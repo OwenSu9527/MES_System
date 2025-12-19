@@ -1,391 +1,841 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MES 智慧戰情室</title>
+    <title>MES 整合製造執行系統 | Enterprise Edition</title>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
-        :root { --primary: #2563eb; --success: #22c55e; --warning: #f59e0b; --danger: #ef4444; --repair: #3b82f6; --bg: #f3f4f6; }
-        body { font-family: 'Segoe UI', "Microsoft JhengHei", sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #1f2937; }
-        
-        /* 標題與登出按鈕區塊 */
-        .header-bar { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 30px auto; }
-        h1 { margin: 0; font-weight: 800; color: #111827; flex-grow: 1; text-align: center; }
-        .btn-logout { background-color: #9ca3af; color: white; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; display: none; } /* 預設隱藏 */
-        .btn-logout:hover { background-color: #6b7280; }
-
-        .container { max-width: 1200px; margin: 0 auto; display: grid; gap: 20px; }
-        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .section-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 15px; border-left: 5px solid var(--primary); padding-left: 10px; }
-
-        /* 機台列表 */
-        .machine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
-        .machine-card { 
-            text-align: center; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: all 0.2s;
-            position: relative; overflow: hidden;
+        /* --- 1. CSS 變數系統 --- */
+        :root {
+            --primary: #2563eb; --primary-hover: #1d4ed8;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --repair: #8b5cf6;
+            --bg-body: #f1f5f9; --bg-sidebar: #ffffff; --bg-card: #ffffff;
+            --text-main: #0f172a; --text-sub: #64748b; --border-color: #e2e8f0;
+            --sidebar-active: #eff6ff; --sidebar-hover: #f8fafc;
+            --shadow-card: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            --chart-text: #64748b; --chart-grid: #e2e8f0;
+            --table-hover: #f8fafc;
+            --modal-overlay: rgba(0,0,0,0.5);
         }
-        .machine-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: var(--primary); }
-        .machine-card::after { content: '👆 點擊操作'; position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.05); font-size: 0.8rem; color: #666; padding: 2px 0; opacity: 0; transition: opacity 0.2s; }
-        .machine-card:hover::after { opacity: 1; }
 
-        /* 狀態燈號 */
-        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 0.875rem; font-weight: 600; margin-top: 10px; color: white;}
-        .status-0 { background-color: var(--warning); } /* Idle */
-        .status-1 { background-color: var(--success); } /* Running */
-        .status-2 { background-color: var(--danger); }  /* Down */
-        .status-3 { background-color: var(--repair); }  /* Repair */
+        [data-theme="dark"] {
+            --primary: #3b82f6; --primary-hover: #60a5fa;
+            --bg-body: #0f172a; --bg-sidebar: #1e293b; --bg-card: #1e293b;
+            --text-main: #f8fafc; --text-sub: #94a3b8; --border-color: #334155;
+            --sidebar-active: #334155; --sidebar-hover: #2a384b;
+            --shadow-card: none;
+            --chart-text: #94a3b8; --chart-grid: #334155;
+            --table-hover: #2d3748;
+            --modal-overlay: rgba(0,0,0,0.7);
+        }
 
-        /* 模態視窗 (Modal) 共用樣式 */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
-        .modal { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
-        .modal h3 { margin-top: 0; text-align: center; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }
-        .btn-group { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-        button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
-        .btn-cancel { background: #e5e7eb; color: #374151; }
-        .btn-submit { background: var(--primary); color: white; width: 100%; } /* Login button width */
-        .btn-submit:hover { opacity: 0.9; }
-        .btn-action-submit { background: var(--primary); color: white; } /* Action modal button */
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-body); color: var(--text-main); margin: 0; overflow: hidden; height: 100vh; }
 
-        /* 其他原有樣式 (工單/WIP) */
-        .wo-list { display: flex; flex-direction: column; gap: 10px; }
-        .wo-item { border-bottom: 1px solid #f3f4f6; padding-bottom: 10px; }
-        .progress-bg { background-color: #e5e7eb; border-radius: 99px; height: 10px; width: 100%; margin-top: 5px; overflow: hidden; }
-        .progress-bar { background-color: var(--primary); height: 100%; transition: width 0.5s ease; }
-        .wip-chart { display: flex; align-items: flex-end; gap: 20px; height: 150px; padding-top: 20px; border-bottom: 2px solid #ccc;}
-        .bar-container { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
-        .bar { background-color: var(--warning); width: 60%; margin: 0 auto; border-radius: 5px 5px 0 0; transition: height 0.5s; min-height: 2px; }
+        /* --- Utility Classes (取代 Inline Styles) --- */
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-end { justify-content: flex-end; }
+        .justify-center { justify-content: center; }
+        .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+        .w-full { width: 100%; }
+        .text-sm { font-size: 0.85rem; }
+        .text-sub { color: var(--text-sub); }
+        .font-bold { font-weight: 700; }
+        .cursor-pointer { cursor: pointer; }
+        .hidden { display: none !important; }
+
+        /* --- Layout --- */
+        .app-wrapper { display: flex; height: 100vh; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; z-index: 50; transition: transform 0.3s ease; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border-color); }
+        .app-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.25rem; margin-bottom: 20px; color: var(--primary); }
+        
+        .site-selector { background: var(--bg-body); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .selector-label { font-size: 0.75rem; color: var(--text-sub); font-weight: bold; margin-bottom: 4px; display: block; text-transform: uppercase; }
+        .selector-input { width: 100%; background: var(--bg-card); /* 修改：給予明確背景色，而非 transparent */border: 1px solid var(--border-color); /* 新增：增加邊框讓它更明顯 */border-radius: 6px; /* 新增：圓角 */font-weight: 600; color: var(--text-main); outline: none; cursor: pointer; padding: 6px 8px; /* 修改：增加內距 */margin-top: 4px; }
+        .divider { height: 1px; background: var(--border-color); margin: 8px 0; }
+
+        .nav-menu { flex: 1; padding: 20px 10px; list-style: none; margin: 0; overflow-y: auto; }
+        .nav-category { font-size: 0.75rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; margin: 20px 0 8px 15px; letter-spacing: 0.5px; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 4px; border-radius: 8px; color: var(--text-sub); cursor: pointer; transition: all 0.2s; font-weight: 600; }
+        .nav-item:hover { background-color: var(--sidebar-hover); color: var(--text-main); }
+        .nav-item.active { background-color: var(--sidebar-active); color: var(--primary); }
+        .sidebar-footer { padding: 20px; border-top: 1px solid var(--border-color); }
+
+		/* --- 請在 CSS 任意處新增此段 (專門修復下拉選單選項顏色) --- */
+		select option {
+			background-color: var(--bg-card);
+			color: var(--text-main);
+		}
+		/* --- (選用) 優化右側內容區的輸入框顯示 --- */
+		.form-control {
+			width: 100%;
+			padding: 10px 12px;
+			background-color: var(--bg-body); /* 確保這裡使用變數 */
+			color: var(--text-main);
+			border: 1px solid var(--border-color);
+			border-radius: 8px;
+			font-size: 0.95rem;
+			transition: border 0.2s, background-color 0.3s, color 0.3s; /* 增加過渡效果 */
+		}
+
+        /* Main Content */
+        .main-content { flex: 1; padding: 30px; overflow-y: auto; position: relative; scroll-behavior: smooth; }
+        .page-section { display: none; animation: fadeIn 0.3s ease-out; }
+        .page-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Cards & Grid */
+        .container-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; max-width: 1600px; margin: 0 auto; }
+        .card { background: var(--bg-card); border-radius: 16px; padding: 24px; box-shadow: var(--shadow-card); border: 1px solid var(--border-color); transition: transform 0.2s; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+        .card-title { font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+        .col-span-12 { grid-column: span 12; } .col-span-6 { grid-column: span 6; }
+        @media (max-width: 1024px) { .col-span-6 { grid-column: span 12; } }
+
+        /* Machine Grid */
+        .machine-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+        .machine-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; text-align: center; position: relative; overflow: hidden; border-top-width: 4px; }
+        .machine-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .machine-name { font-weight: 700; margin: 12px 0; font-size: 1.1rem; }
+        .machine-val { font-size: 0.9rem; color: var(--text-sub); margin-top: 5px; }
+        
+        /* Status Badges */
+        .badge { padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; letter-spacing: 0.5px; }
+        .badge-new { background: rgba(37, 99, 235, 0.1); color: #3b82f6; }
+        .badge-wip { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+        .badge-done { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .badge-alert { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .badge-gray { background: rgba(100, 116, 139, 0.1); color: var(--text-sub); border: 1px solid var(--border-color); }
+
+        /* Tables */
+        .table-container { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); }
+        .data-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        .data-table th { text-align: left; padding: 16px; border-bottom: 2px solid var(--border-color); color: var(--text-sub); font-size: 0.85rem; font-weight: 700; background: var(--bg-card); text-transform: uppercase; }
+        .data-table td { padding: 16px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+        .data-table tr:hover { background-color: var(--table-hover); }
+
+        /* Forms & Inputs */
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-main); }
+        .form-control { width: 100%; padding: 10px 12px; background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.95rem; transition: border 0.2s; }
+        .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        
+        /* Buttons */
+        .btn { padding: 9px 18px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-outline:hover { border-color: var(--text-sub); }
+        .btn-ghost { background: transparent; color: var(--text-sub); }
+        .btn-ghost:hover { background: var(--table-hover); color: var(--text-main); }
+        .btn-icon { padding: 8px; font-size: 1.1rem; }
+
+        /* Modals */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: var(--modal-overlay); z-index: 100; justify-content: center; align-items: center; backdrop-filter: blur(2px); animation: fadeIn 0.2s; }
+        .modal { background: var(--bg-card); color: var(--text-main); border-radius: 16px; width: 95%; max-width: 700px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; max-height: 90vh; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 24px; overflow-y: auto; background: var(--bg-body); }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-card); border-radius: 0 0 16px 16px; }
+
+        /* Tabs inside Modal */
+        .modal-tabs { display: flex; padding: 0 24px; background: var(--bg-body); border-bottom: 1px solid var(--border-color); }
+        .modal-tab { padding: 16px 20px; cursor: pointer; color: var(--text-sub); font-weight: 600; border-bottom: 2px solid transparent; transition: 0.2s; }
+        .modal-tab:hover { color: var(--primary); }
+        .modal-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--bg-card); border-radius: 8px 8px 0 0; border: 1px solid var(--border-color); border-bottom: none; position: relative; top: 1px; }
+        .tab-content { display: none; } .tab-content.active { display: block; }
+
+        /* Specific Components */
+        .control-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+        .btn-ctrl { padding: 20px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .btn-ctrl i { font-size: 1.5rem; margin-bottom: 4px; }
+        .btn-start { background: rgba(16, 185, 129, 0.1); color: #10b981; } .btn-start:hover{background:#10b981; color:white;}
+        .btn-stop { background: rgba(239, 68, 68, 0.1); color: #ef4444; } .btn-stop:hover{background:#ef4444; color:white;}
+        .btn-reset { background: rgba(245, 158, 11, 0.1); color: #f59e0b; } .btn-reset:hover{background:#f59e0b; color:white;}
+
+        /* FAI Styles */
+        .fai-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 16px; transition: 0.2s; }
+        .fai-card.error { border-color: var(--danger); box-shadow: 0 0 0 2px rgba(239,68,68,0.1); }
+        .fai-header { display: flex; justify-content: space-between; align-items: center; }
+        .toggle-btn { padding: 6px 16px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; background: var(--bg-body); color: var(--text-sub); transition: 0.2s; font-weight: 600; }
+        .toggle-btn.pass.active { background: var(--success); color: white; border-color: var(--success); }
+        .toggle-btn.fail.active { background: var(--danger); color: white; border-color: var(--danger); }
+        
+        /* Mobile Responsive */
+        .mobile-header { display: none; padding: 15px 20px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border-color); justify-content: space-between; align-items: center; z-index: 60; }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; backdrop-filter: blur(2px); }
+        .sidebar-overlay.show { display: block; }
+
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; height: 100vh; transform: translateX(-100%); box-shadow: 5px 0 15px rgba(0,0,0,0.1); }
+            .sidebar.open { transform: translateX(0); }
+            .mobile-header { display: flex; }
+            .main-content { padding: 15px; padding-bottom: 80px; } /* Space for mobile nav if needed */
+        }
+        
+        /* Loading Skeleton */
+        .skeleton { background: #e2e8f0; border-radius: 4px; animation: pulse 1.5s infinite ease-in-out; }
+        [data-theme="dark"] .skeleton { background: #334155; }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
     </style>
 </head>
 <body>
 
-    <div class="header-bar">
-        <h1>🏭 MES 智慧製造戰情室</h1>
-        <button id="logoutBtn" class="btn-logout" onclick="performLogout()">登出 (Logout)</button>
+    <div class="mobile-header">
+        <div class="flex items-center gap-3">
+            <button onclick="App.toggleSidebar()" class="btn-icon" style="background:none; border:none; color:var(--text-main);"><i class="fa-solid fa-bars"></i></button>
+            <span class="font-bold text-main" style="font-size:1.2rem;">MES Pro</span>
+        </div>
+        <i class="fa-solid fa-industry" style="color:var(--primary); font-size:1.5rem;"></i>
     </div>
 
-    <div class="container" id="dashboardContent" style="display:none; filter: blur(5px);">
-        <div class="card">
-            <div class="section-title">設備狀態監控 (點擊可操作)</div>
-            <div id="machine-container" class="machine-grid">載入中...</div>
-        </div>
+    <div class="app-wrapper">
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="App.toggleSidebar()"></div>
 
-        <div class="card">
-            <div class="section-title">生產工單進度</div>
-            <div id="wo-container" class="wo-list">載入中...</div>
-        </div>
+        <aside class="sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <div class="app-brand">
+                    <i class="fa-solid fa-industry"></i>
+                    <div>MES 戰情室</div>
+                </div>
+                
+                <div class="site-selector">
+                    <label class="selector-label">廠區 (Plant)</label>
+                    <select class="selector-input" id="plantSelect" onchange="App.updateContext()">
+                        <option value="P1">新竹廠 (Plant A)</option>
+                        <option value="P2">台南廠 (Plant B)</option>
+                    </select>
+                    <div class="divider"></div>
+                    <label class="selector-label">產線 (Line)</label>
+                    <select class="selector-input" id="lineSelect" onchange="App.updateContext()">
+                        <option value="L1">SMT Line 01</option>
+                        <option value="L2">DIP Line 01</option>
+                        <option value="L3">Packing Line</option>
+                    </select>
+                </div>
+            </div>
 
-        <div class="card">
-            <div class="section-title">產線在製品堆積</div>
-            <div id="wip-container" class="wip-chart">載入中...</div>
-        </div>
+            <ul class="nav-menu">
+                <div class="nav-category">監控中心</div>
+                <li class="nav-item active" onclick="App.switchPage('dashboard', this)">
+                    <i class="fa-solid fa-chart-line w-6"></i> 總覽儀表板
+                </li>
+                
+                <div class="nav-category">生產管理</div>
+                <li class="nav-item" onclick="App.switchPage('work-orders', this)">
+                    <i class="fa-solid fa-clipboard-list w-6"></i> 工單管理 (ERP)
+                </li>
+                <li class="nav-item" onclick="App.switchPage('fai-system', this)">
+                    <i class="fa-solid fa-microscope w-6"></i> 首件檢查 (FAI)
+                </li>
+                <li class="nav-item" onclick="App.switchPage('inventory', this)">
+                    <i class="fa-solid fa-boxes-stacked w-6"></i> 物料與倉庫
+                </li>
+
+                <div class="nav-category">工程配置</div>
+                <li class="nav-item" onclick="App.switchPage('engineering', this)">
+                    <i class="fa-solid fa-code-branch w-6"></i> 工藝路徑設定
+                </li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <button class="btn btn-outline w-full mb-3" onclick="App.toggleTheme()">
+                    <i class="fa-solid fa-moon" id="themeIcon"></i> 深色模式
+                </button>
+                <button id="logoutBtn" onclick="App.logout()" class="btn w-full hidden" style="border-color:var(--danger); color:var(--danger); background: transparent; border:1px solid;">
+                    <i class="fa-solid fa-right-from-bracket"></i> 登出系統
+                </button>
+            </div>
+        </aside>
+
+        <main class="main-content" id="mainContent">
+            
+            <div id="dashboard" class="page-section active">
+                <div class="container-grid">
+                    <div class="card col-span-12">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-server text-primary"></i> 
+                                <span id="dashboard-title">新竹廠 - SMT Line 01 設備監控</span>
+                            </div>
+                            <span class="badge badge-gray"><i class="fa-solid fa-shield-halved"></i> 安全模式啟用</span>
+                        </div>
+                        <div id="machine-container" class="machine-grid">
+                            <div class="skeleton" style="height:150px;"></div>
+                            <div class="skeleton" style="height:150px;"></div>
+                            <div class="skeleton" style="height:150px;"></div>
+                            <div class="skeleton" style="height:150px;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="card col-span-6">
+                        <div class="card-title mb-4"><i class="fa-solid fa-chart-column"></i> WIP 在製品分析</div>
+                        <div style="height: 250px; position: relative;"><canvas id="wipChart"></canvas></div>
+                    </div>
+                    <div class="card col-span-6">
+                        <div class="card-title mb-4"><i class="fa-solid fa-chart-pie"></i> 品質不良分析</div>
+                        <div style="height: 250px; position: relative;"><canvas id="qualityChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="work-orders" class="page-section">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2 style="margin:0; font-size:1.2rem;">工單管理系統</h2>
+                            <span class="text-sm text-sub">簡易排程與發單 (Lite-ERP)</span>
+                        </div>
+                        <button class="btn btn-primary" onclick="App.openModal('createWOModal')">
+                            <i class="fa-solid fa-plus"></i> 建立新工單
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>工單號</th><th>產品</th><th>進度 (當前/目標)</th><th>優先級</th><th>產線</th><th>狀態</th><th>操作</th></tr></thead>
+                            <tbody id="wo-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="fai-system" class="page-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 style="margin:0; font-size:1.2rem;">首件檢查 (FAI)</h2>
+                        <button class="btn btn-outline" onclick="Swal.fire('Info', '模擬功能', 'info')"><i class="fa-solid fa-gear"></i> 設定</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>工單號</th><th>產品</th><th>版本</th><th>送檢時間</th><th>狀態</th><th>操作</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>WO-20231220-05</strong></td><td>PCB-Mainboard-X</td>
+                                    <td><span class="badge badge-new">Ver 1.2</span></td>
+                                    <td>10:30 AM</td>
+                                    <td><span class="badge badge-wip">待檢驗</span></td>
+                                    <td><button class="btn btn-primary btn-sm" onclick="App.openFAI('WO-20231220-05', 'PCB-Mainboard-X')">開始檢驗</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="inventory" class="page-section">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2 style="margin:0; font-size:1.2rem;">物料庫存總覽</h2>
+                            <div class="flex gap-2 mt-2">
+                                <span class="badge badge-gray cursor-pointer">所有倉庫</span>
+                                <span class="badge badge-gray cursor-pointer" style="opacity:0.6">原物料倉</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-outline"><i class="fa-solid fa-rotate"></i> 刷新</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>料號 (Part No.)</th><th>品名</th><th>倉庫位置</th><th>庫存量</th><th>狀態</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>M-IC-0035</strong></td><td>MCU Controller</td>
+                                    <td><i class="fa-solid fa-warehouse text-sub"></i> A01-Shelf-05</td>
+                                    <td>1,200 / 500 (Min)</td>
+                                    <td><span class="badge badge-done">充足</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>M-PCB-1102</strong></td><td>Mainboard V2</td>
+                                    <td><i class="fa-solid fa-warehouse text-sub"></i> B02-Zone-C</td>
+                                    <td>45 / 100 (Min)</td>
+                                    <td><span class="badge badge-alert">低水位</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="quality" class="page-section"><div class="card"><h2>品質管理模組</h2><p class="text-sub">此模組開發中...</p></div></div>
+            <div id="engineering" class="page-section"><div class="card"><h2>工藝路徑設定</h2><p class="text-sub">此模組開發中...</p></div></div>
+
+        </main>
     </div>
 
     <div id="loginModal" class="modal-overlay" style="display: flex;">
-        <div class="modal">
-            <h3>🔐 請登入 MES 系統</h3>
-            <div class="form-group">
-                <label>帳號 (Username)</label>
-                <input type="text" id="loginUser" value="admin" placeholder="請輸入帳號">
+        <div class="modal" style="max-width:400px; padding:0;">
+            <div class="modal-body text-center" style="padding:40px 30px;">
+                <div style="background:var(--sidebar-active); width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+                    <i class="fa-solid fa-lock" style="font-size:1.5rem; color:var(--primary);"></i>
+                </div>
+                <h3 style="margin-bottom:20px;">系統登入</h3>
+                <div class="form-group" style="text-align:left;">
+                    <label class="form-label">帳號</label>
+                    <input type="text" id="loginUser" class="form-control" value="admin" placeholder="Enter username">
+                </div>
+                <div class="form-group" style="text-align:left;">
+                    <label class="form-label">密碼</label>
+                    <input type="password" id="loginPass" class="form-control" value="admin123" placeholder="Enter password">
+                </div>
+                <button onclick="App.login()" class="btn btn-primary w-full" style="justify-content:center; margin-top:10px;">登入</button>
             </div>
-            <div class="form-group">
-                <label>密碼 (Password)</label>
-                <input type="password" id="loginPass" value="admin123" placeholder="請輸入密碼">
-            </div>
-            <div class="btn-group">
-                <button class="btn-submit" onclick="performLogin()">登入 (Login)</button>
-            </div>
-            <p id="loginError" style="color:red; text-align:center; margin-top:10px; font-size:0.9rem;"></p>
         </div>
     </div>
 
     <div id="actionModal" class="modal-overlay">
         <div class="modal">
-            <h3 id="modalTitle">設備操作</h3>
-            <div id="modalContent"></div>
-            <div class="btn-group">
-                <button class="btn-cancel" onclick="closeModal()">取消</button>
-                <button class="btn-action-submit" onclick="submitAction()">確定執行</button>
+            <div class="modal-header">
+                <h3 id="modalTitle" style="margin:0;">設備操作</h3>
+                <button onclick="App.closeModal('actionModal')" class="btn-icon btn-ghost"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-tabs">
+                <div class="modal-tab active" onclick="App.switchTab('tab-control', this)">監控與控制</div>
+                <div class="modal-tab" onclick="App.switchTab('tab-sop', this)">SOP</div>
+                <div class="modal-tab" onclick="App.switchTab('tab-repair', this)">維修</div>
+            </div>
+            <div class="modal-body">
+                <div id="tab-control" class="tab-content active">
+                    <div class="flex justify-between gap-4 mb-4" style="text-align:center;">
+                        <div class="card w-full" style="padding:15px; background:var(--bg-body); box-shadow:none;">
+                            <div class="text-sm text-sub">轉速 (RPM)</div>
+                            <div class="font-bold" style="font-size:1.5rem;" id="modal-rpm">--</div>
+                        </div>
+                        <div class="card w-full" style="padding:15px; background:var(--bg-body); box-shadow:none;">
+                            <div class="text-sm text-sub">溫度 (Temp)</div>
+                            <div class="font-bold" style="font-size:1.5rem; color:var(--success);" id="modal-temp">--</div>
+                        </div>
+                    </div>
+                    <div class="control-grid">
+                        <button class="btn-ctrl btn-start" onclick="App.sendCommand('START')"><i class="fa-solid fa-play"></i> 啟動</button>
+                        <button class="btn-ctrl btn-stop" onclick="App.sendCommand('STOP')"><i class="fa-solid fa-stop"></i> 停止</button>
+                        <button class="btn-ctrl btn-reset" onclick="App.sendCommand('RESET')"><i class="fa-solid fa-rotate-left"></i> 復歸</button>
+                    </div>
+                </div>
+                <div id="tab-sop" class="tab-content">
+                    <div style="padding:15px; background:#eff6ff; border-radius:8px; color:#1e40af; margin-bottom:15px; border:1px solid #dbeafe;">
+                        <strong><i class="fa-solid fa-circle-info"></i> 操作提示:</strong> 請依照標準程序操作，確保人員安全。
+                    </div>
+                    <ul style="padding-left:20px; color:var(--text-main);">
+                        <li style="margin-bottom:10px;">檢查機台周圍是否有異物。</li>
+                        <li style="margin-bottom:10px;">確認緊急停止按鈕處於彈起狀態。</li>
+                        <li>按下啟動按鈕前，請先進行蜂鳴器測試。</li>
+                    </ul>
+                </div>
+                <div id="tab-repair" class="tab-content">
+                    <div class="form-group">
+                        <label class="form-label">異常代碼</label>
+                        <select class="form-control"><option>ERR-01 (馬達過熱)</option><option>ERR-02 (感測器異常)</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">備註說明</label>
+                        <textarea class="form-control" rows="3"></textarea>
+                    </div>
+                    <button class="btn btn-danger w-full" style="background:var(--danger); color:white; justify-content:center;" onclick="Swal.fire('已回報', '維修工單已生成', 'success')">提交報修</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="faiModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3 style="margin:0;">FAI 首件檢查</h3><div class="text-sm text-sub" id="fai-subtitle"></div></div>
+                <button onclick="App.closeModal('faiModal')" class="btn-icon btn-ghost"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="fai-body"></div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="App.clearFAIDraft()">清除暫存</button>
+                <button class="btn btn-primary" onclick="App.submitFAI()">提交報告</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createWOModal" class="modal-overlay">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h3 style="margin:0;">建立生產工單</h3>
+                <button onclick="App.closeModal('createWOModal')" class="btn-icon btn-ghost"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">工單編號 (自動)</label>
+                    <input type="text" id="new-wo-id" class="form-control" disabled style="background:var(--bg-body); opacity:0.7;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">產品型號</label>
+                    <select id="new-wo-product" class="form-control">
+                        <option>PCB-Mainboard-X</option><option>Controller-Gen2</option><option>Power-Supply-Unit</option>
+                    </select>
+                </div>
+                <div class="flex gap-4">
+                    <div class="form-group w-full">
+                        <label class="form-label">目標數量</label>
+                        <input type="number" id="new-wo-qty" class="form-control" value="1000">
+                    </div>
+                    <div class="form-group w-full">
+                        <label class="form-label">優先級</label>
+                        <select id="new-wo-priority" class="form-control">
+                            <option value="Normal">一般</option><option value="High">急件</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">指定產線</label>
+                    <select id="new-wo-line" class="form-control">
+                        <option value="L1">SMT Line 01</option><option value="L2">DIP Line 01</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="App.closeModal('createWOModal')">取消</button>
+                <button class="btn btn-primary" onclick="App.submitNewWO()">確認發布</button>
             </div>
         </div>
     </div>
 
     <script>
-        const BASE_URL = 'http://localhost:5289/api';
-        
-        // 從 LocalStorage 嘗試取得 Token
-        let jwtToken = localStorage.getItem('mes_token');
-        let refreshInterval = null;
-
-        // 當前操作的機台資料
-        let currentMachine = null;
-
-        // 初始化檢查
-        checkLoginStatus();
-
-        // 檢查登入狀態
-        function checkLoginStatus() {
-            if (jwtToken) {
-                // 已登入
-                document.getElementById('loginModal').style.display = 'none';
-                document.getElementById('dashboardContent').style.display = 'grid';
-                document.getElementById('dashboardContent').style.filter = 'none';
-                document.getElementById('logoutBtn').style.display = 'block';
+        /**
+         * MES Application Logic
+         * 使用單一物件 'App' 封裝邏輯，避免全域變數污染
+         */
+        const App = {
+            data: {
+                machines: [],
+                wos: [
+                    {id:'WO-20231220-01', product:'PCB-Mainboard-X', target:5000, curr:4200, pri:'High', line:'L1', status:'In Progress'},
+                    {id:'WO-20231220-02', product:'Controller-Gen2', target:200, curr:200, pri:'Normal', line:'L2', status:'Completed'},
+                    {id:'WO-20231220-03', product:'Power-Supply-Unit', target:1000, curr:0, pri:'Normal', line:'L1', status:'Released'}
+                ],
+                faiDraft: {},
+                charts: {}
+            },
+            config: {
+                theme: localStorage.getItem('theme') || 'light',
+                refreshRate: 3000
+            },
+            
+            init() {
+                this.applyTheme();
+                this.checkLogin();
                 
-                // 啟動自動更新
-                fetchData();
-                if (!refreshInterval) {
-                    refreshInterval = setInterval(fetchData, 5000);
-                }
-            } else {
-                // 未登入
-                document.getElementById('loginModal').style.display = 'flex';
-                document.getElementById('dashboardContent').style.display = 'none';
-                document.getElementById('logoutBtn').style.display = 'none';
+                // Initialize Charts if on dashboard
+                this.initCharts();
                 
-                if (refreshInterval) {
-                    clearInterval(refreshInterval);
-                    refreshInterval = null;
-                }
-            }
-        }
+                // Polling for data
+                setInterval(() => {
+                    if(!document.hidden && localStorage.getItem('mes_token')) this.fetchData();
+                }, this.config.refreshRate);
 
-        // 執行登入
-        async function performLogin() {
-            const username = document.getElementById('loginUser').value;
-            const password = document.getElementById('loginPass').value;
-            const errorMsg = document.getElementById('loginError');
-
-            // 按鈕 Loading 狀態
-            const btn = document.querySelector('.btn-submit');
-            const originalText = btn.innerText;
-            btn.innerText = "驗證中...";
-            btn.disabled = true;
-
-            try {
-                const res = await fetch(`${BASE_URL}/Auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                // Event Listener for visibility change
+                document.addEventListener('visibilitychange', () => {
+                    if(!document.hidden) this.fetchData();
                 });
+            },
 
-                if (res.ok) {
-                    const data = await res.json();
-                    jwtToken = data.token;
-                    // 儲存 Token 到 LocalStorage (除非登出，否則重整不用重登)
-                    localStorage.setItem('mes_token', jwtToken);
-                    errorMsg.innerText = "";
-                    checkLoginStatus();
+            // --- Authentication ---
+            checkLogin() {
+                const token = localStorage.getItem('mes_token');
+                if(token) {
+                    document.getElementById('loginModal').style.display = 'none';
+                    document.getElementById('logoutBtn').classList.remove('hidden');
+                    this.fetchData(); // Initial load
                 } else {
-                    errorMsg.innerText = "登入失敗：帳號或密碼錯誤";
+                    document.getElementById('loginModal').style.display = 'flex';
                 }
-            } catch (e) {
-                errorMsg.innerText = "連線錯誤，請確認後端是否啟動";
-                console.error(e);
-            } finally {
-                btn.innerText = originalText;
+            },
+            async login() {
+                const u = document.getElementById('loginUser').value;
+                const p = document.getElementById('loginPass').value;
+                const btn = document.querySelector('#loginModal .btn-primary');
+                
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 驗證中...';
+                btn.disabled = true;
+
+                await new Promise(r => setTimeout(r, 800)); // Simulate API
+
+                if(u === 'admin' && p === 'admin123') {
+                    localStorage.setItem('mes_token', 'mock_token_' + Date.now());
+                    this.checkLogin();
+                    Swal.fire({ toast:true, position:'top-end', icon:'success', title:'登入成功', timer:1500, showConfirmButton:false });
+                } else {
+                    Swal.fire('登入失敗', '帳號或密碼錯誤', 'error');
+                }
+                btn.innerHTML = '登入';
                 btn.disabled = false;
-            }
-        }
+            },
+            logout() {
+                Swal.fire({
+                    title: '確定登出?', icon: 'warning', showCancelButton: true, confirmButtonText: '登出', confirmButtonColor: '#ef4444'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        localStorage.removeItem('mes_token');
+                        location.reload();
+                    }
+                });
+            },
 
-        // 執行登出
-        function performLogout() {
-            if(confirm("確定要登出系統嗎？")) {
-                localStorage.removeItem('mes_token');
-                jwtToken = null;
-                checkLoginStatus();
-            }
-        }
-
-        // 獲取數據 (帶入 JWT Token)
-        async function fetchData() {
-            if (!jwtToken) return;
-
-            try {
-                // [Day 16] 設定 Header 帶入 Token
-                const headers = { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${jwtToken}`
+            // --- Theme & UI ---
+            toggleTheme() {
+                this.config.theme = this.config.theme === 'light' ? 'dark' : 'light';
+                localStorage.setItem('theme', this.config.theme);
+                this.applyTheme();
+                this.updateChartsTheme(); // Update charts color
+            },
+            applyTheme() {
+                document.documentElement.setAttribute('data-theme', this.config.theme);
+                const icon = document.getElementById('themeIcon');
+                icon.className = this.config.theme === 'light' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+            },
+            toggleSidebar() {
+                document.getElementById('appSidebar').classList.toggle('open');
+                document.getElementById('sidebarOverlay').classList.toggle('show');
+            },
+            switchPage(pageId, navEl) {
+                document.querySelectorAll('.page-section').forEach(e => e.classList.remove('active'));
+                document.getElementById(pageId).classList.add('active');
+                document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+                navEl.classList.add('active');
+                if(window.innerWidth <= 768) this.toggleSidebar();
+            },
+            
+            // --- Core Logic ---
+            async fetchData() {
+                // Simulate Data Fetch
+                const machines = [
+                    {id:1, name:'SMT-01', status:1, rpm:1200, temp:42},
+                    {id:2, name:'SMT-02', status:1, rpm:1150, temp:40},
+                    {id:3, name:'AOI-01', status:0, rpm:0, temp:35},
+                    {id:4, name:'Reflow', status:2, rpm:0, temp:245}
+                ];
+                
+                // Add random variation
+                machines.forEach(m => {
+                    if(m.status === 1) {
+                        m.rpm += Math.floor(Math.random()*20 - 10);
+                        m.temp += Math.floor(Math.random()*4 - 2);
+                    }
+                });
+                
+                this.data.machines = machines;
+                this.renderDashboard();
+                this.renderWOs();
+            },
+            
+            renderDashboard() {
+                const container = document.getElementById('machine-container');
+                const statusMap = {
+                    0: { t:'閒置', c:'var(--warning)', i:'fa-pause', bg:'rgba(245,158,11,0.1)' },
+                    1: { t:'運轉中', c:'var(--success)', i:'fa-gears', bg:'rgba(16,185,129,0.1)' },
+                    2: { t:'異常停機', c:'var(--danger)', i:'fa-triangle-exclamation', bg:'rgba(239,68,68,0.1)' }
                 };
 
-                const [eqRes, woRes, wipRes] = await Promise.all([
-                    fetch(`${BASE_URL}/Equipment`, { headers }),
-                    fetch(`${BASE_URL}/WorkOrder`, { headers }),
-                    fetch(`${BASE_URL}/Production/wip`, { headers })
-                ]);
+                container.innerHTML = this.data.machines.map(m => {
+                    const s = statusMap[m.status];
+                    return `
+                    <div class="machine-card" onclick="App.openActionModal(${m.id})" style="border-top-color:${s.c}">
+                        <div style="background:${s.bg}; width:50px; height:50px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center;">
+                            <i class="fa-solid ${s.i}" style="color:${s.c}; font-size:1.5rem;"></i>
+                        </div>
+                        <div class="machine-name">${m.name}</div>
+                        <div class="machine-val">${m.rpm} RPM | ${m.temp}°C</div>
+                        <div class="badge" style="margin-top:12px; background:${s.bg}; color:${s.c}">${s.t}</div>
+                    </div>`;
+                }).join('');
+            },
+
+            renderWOs() {
+                const tbody = document.getElementById('wo-table-body');
+                tbody.innerHTML = this.data.wos.map(w => `
+                    <tr>
+                        <td class="font-bold text-primary">${w.id}</td>
+                        <td>${w.product}</td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <div style="flex:1; height:6px; background:var(--border-color); border-radius:3px; overflow:hidden;">
+                                    <div style="width:${(w.curr/w.target)*100}%; background:var(--primary); height:100%;"></div>
+                                </div>
+                                <span class="text-sm">${w.curr}/${w.target}</span>
+                            </div>
+                        </td>
+                        <td><span style="color:${w.pri==='High'?'var(--danger)':'inherit'}">${w.pri}</span></td>
+                        <td>${w.line}</td>
+                        <td><span class="badge ${w.status==='Completed'?'badge-done':w.status==='In Progress'?'badge-wip':'badge-new'}">${w.status}</span></td>
+                        <td><button class="btn btn-ghost btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button></td>
+                    </tr>
+                `).join('');
+            },
+
+            // --- Modals ---
+            openModal(id) {
+                if(id === 'createWOModal') {
+                    document.getElementById('new-wo-id').value = `WO-20231220-${String(this.data.wos.length + 1).padStart(2,'0')}`;
+                }
+                document.getElementById(id).style.display = 'flex';
+            },
+            closeModal(id) { document.getElementById(id).style.display = 'none'; },
+            
+            openActionModal(machineId) {
+                const m = this.data.machines.find(x => x.id === machineId);
+                if(!m) return;
+                document.getElementById('modalTitle').innerText = `${m.name} - 控制台`;
+                document.getElementById('modal-rpm').innerText = m.rpm;
+                document.getElementById('modal-temp').innerText = m.temp + '°C';
+                this.openModal('actionModal');
+            },
+
+            switchTab(tabId, el) {
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(tabId).classList.add('active');
+                document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+                el.classList.add('active');
+            },
+
+            // --- FAI System ---
+            openFAI(wo, prod) {
+                this.currentWO = wo;
+                document.getElementById('fai-subtitle').innerText = `${wo} | ${prod}`;
+                const saved = JSON.parse(localStorage.getItem(`fai_${wo}`) || '{}');
                 
-                // 處理 Token 過期或無效
-                if (eqRes.status === 401) {
-                    alert('登入已逾時，請重新登入');
-                    performLogout(); // 強制登出
-                    return;
+                const items = [
+                    {id:1, title:"輸出電壓 (Voltage)", spec:"5.0V ±0.1"},
+                    {id:2, title:"外觀檢查 (Visual)", spec:"無刮傷缺件"}
+                ];
+
+                document.getElementById('fai-body').innerHTML = items.map(i => {
+                    const s = saved[i.id]?.status;
+                    const r = saved[i.id]?.remark || '';
+                    return `
+                    <div class="fai-card ${s==='fail'?'error':''}">
+                        <div class="fai-header">
+                            <div><span class="badge badge-gray" style="margin-right:8px;">${i.id}</span> <strong>${i.title}</strong> <span class="text-sub text-sm">(${i.spec})</span></div>
+                            <div class="flex gap-2">
+                                <button class="toggle-btn pass ${s==='pass'?'active':''}" onclick="App.setFAI(${i.id}, 'pass')">Pass</button>
+                                <button class="toggle-btn fail ${s==='fail'?'active':''}" onclick="App.setFAI(${i.id}, 'fail')">Fail</button>
+                            </div>
+                        </div>
+                        <div class="${s==='fail'?'':'hidden'}" style="margin-top:10px;">
+                            <input class="form-control" placeholder="輸入異常原因..." value="${r}" onchange="App.setFAIRemark(${i.id}, this.value)">
+                        </div>
+                    </div>`;
+                }).join('');
+                
+                this.data.faiDraft = saved;
+                this.openModal('faiModal');
+            },
+            setFAI(id, status) {
+                if(!this.data.faiDraft[id]) this.data.faiDraft[id] = {};
+                this.data.faiDraft[id].status = status;
+                localStorage.setItem(`fai_${this.currentWO}`, JSON.stringify(this.data.faiDraft));
+                this.openFAI(this.currentWO, 'Product'); // Re-render
+            },
+            setFAIRemark(id, val) {
+                this.data.faiDraft[id].remark = val;
+                localStorage.setItem(`fai_${this.currentWO}`, JSON.stringify(this.data.faiDraft));
+            },
+            submitFAI() {
+                localStorage.removeItem(`fai_${this.currentWO}`);
+                this.closeModal('faiModal');
+                Swal.fire('提交成功', '首件檢查報告已上傳', 'success');
+            },
+
+            // --- Actions ---
+            submitNewWO() {
+                const newWO = {
+                    id: document.getElementById('new-wo-id').value,
+                    product: document.getElementById('new-wo-product').value,
+                    target: document.getElementById('new-wo-qty').value,
+                    curr: 0,
+                    pri: document.getElementById('new-wo-priority').value,
+                    line: document.getElementById('new-wo-line').value,
+                    status: 'Released'
+                };
+                this.data.wos.unshift(newWO);
+                this.renderWOs();
+                this.closeModal('createWOModal');
+                Swal.fire('建立成功', `工單 ${newWO.id} 已發布`, 'success');
+            },
+            async sendCommand(cmd) {
+                const res = await Swal.fire({ title: `執行 ${cmd}?`, icon: 'warning', showCancelButton: true });
+                if(res.isConfirmed) {
+                    const {value: pass} = await Swal.fire({ title: '二次密碼驗證', input: 'password', inputPlaceholder:'1234' });
+                    if(pass === '1234') Swal.fire('指令已發送', '', 'success');
+                    else if(pass) Swal.fire('密碼錯誤', '', 'error');
                 }
+            },
+            updateContext() {
+                const line = document.getElementById('lineSelect').options[document.getElementById('lineSelect').selectedIndex].text;
+                document.getElementById('dashboard-title').innerText = `${document.getElementById('plantSelect').value === 'P1' ? '新竹廠' : '台南廠'} - ${line} 監控`;
+                // Show skeleton
+                document.getElementById('machine-container').innerHTML = Array(4).fill('<div class="skeleton" style="height:150px;"></div>').join('');
+                setTimeout(() => this.fetchData(), 500);
+            },
 
-                renderMachines(await eqRes.json());
-                renderWorkOrders(await woRes.json());
-                renderWip(await wipRes.json());
-            } catch (error) { console.error("Fetch Error:", error); }
-        }
-
-        // 渲染機台
-        function renderMachines(data) {
-            const container = document.getElementById('machine-container');
-            const statusText = { 0: '閒置 Idle', 1: '運作 Running', 2: '故障 Down', 3: '維修 Repair' };
-            
-            container.innerHTML = data.map(eq => `
-                <div class="machine-card" onclick='openActionModal(${JSON.stringify(eq)})'>
-                    <div style="font-weight:bold; font-size:1.1rem;">${eq.name}</div>
-                    <div style="font-size:0.9rem; color:#666; margin:5px 0;">${eq.location}</div>
-                    <div class="status-badge status-${eq.status}">
-                        ${statusText[eq.status] || 'Unknown'}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // 開啟操作視窗
-        function openActionModal(eq) {
-            currentMachine = eq;
-            const modal = document.getElementById('actionModal');
-            const title = document.getElementById('modalTitle');
-            const content = document.getElementById('modalContent');
-            
-            modal.style.display = 'flex';
-            title.innerText = `操作設備: ${eq.name}`;
-
-            if (eq.status === 1 || eq.status === 0) { 
-                content.innerHTML = `
-                    <p>目前狀態正常。是否要回報異常？</p>
-                    <div class="form-group">
-                        <label>異常代碼</label>
-                        <input type="text" id="inputReason" value="ERR-001">
-                    </div>
-                    <div class="form-group">
-                        <label>描述</label>
-                        <textarea id="inputDesc">運轉異音</textarea>
-                    </div>
-                    <input type="hidden" id="actionType" value="REPORT">
-                `;
-            } else if (eq.status === 2) {
-                content.innerHTML = `
-                    <p style="color:red; font-weight:bold;">設備故障中！</p>
-                    <p>要開始維修嗎？</p>
-                    <div class="form-group">
-                        <label>維修單 ID</label>
-                        <input type="number" id="inputRequestId" placeholder="請輸入維修單號">
-                    </div>
-                    <input type="hidden" id="actionType" value="START">
-                `;
-            } else if (eq.status === 3) {
-                content.innerHTML = `
-                    <p style="color:blue; font-weight:bold;">設備維修中...</p>
-                    <div class="form-group">
-                        <label>維修單 ID</label>
-                        <input type="number" id="inputRequestId" placeholder="請輸入維修單號">
-                    </div>
-                    <div class="form-group">
-                        <label>處置對策</label>
-                        <textarea id="inputSolution">更換零件</textarea>
-                    </div>
-                    <input type="hidden" id="actionType" value="COMPLETE">
-                `;
-            }
-        }
-
-        function closeModal() {
-            document.getElementById('actionModal').style.display = 'none';
-        }
-
-        // 送出表單 (帶入 JWT Token)
-        async function submitAction() {
-            const type = document.getElementById('actionType').value;
-            let url = '', method = '', body = {};
-
-            try {
-                if (type === 'REPORT') {
-                    url = `${BASE_URL}/Maintenance/request`;
-                    method = 'POST';
-                    body = {
-                        equipmentId: currentMachine.id,
-                        requestUser: "Dashboard User",
-                        reasonCode: document.getElementById('inputReason').value,
-                        description: document.getElementById('inputDesc').value
-                    };
-                } else if (type === 'START') {
-                    const reqId = document.getElementById('inputRequestId').value;
-                    if(!reqId) return alert('請輸入維修單號');
-                    url = `${BASE_URL}/Maintenance/${reqId}/start`;
-                    method = 'PATCH';
-                } else if (type === 'COMPLETE') {
-                    const reqId = document.getElementById('inputRequestId').value;
-                    if(!reqId) return alert('請輸入維修單號');
-                    url = `${BASE_URL}/Maintenance/complete`;
-                    method = 'POST';
-                    body = {
-                        requestId: reqId,
-                        solution: document.getElementById('inputSolution').value,
-                        remark: "Dashboard Completed"
-                    };
-                }
-
-                const res = await fetch(url, {
-                    method: method,
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${jwtToken}` // [Day 16] Header
+            // --- Charts ---
+            initCharts() {
+                const ctx1 = document.getElementById('wipChart').getContext('2d');
+                const ctx2 = document.getElementById('qualityChart').getContext('2d');
+                
+                this.data.charts.wip = new Chart(ctx1, {
+                    type: 'bar',
+                    data: {
+                        labels: ['SMT', 'AOI', 'DIP', 'Test'],
+                        datasets: [{ label: 'Qty', data: [120, 115, 80, 75], backgroundColor: '#3b82f6', borderRadius: 4 }]
                     },
-                    body: method === 'POST' ? JSON.stringify(body) : null
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { y: { grid: { color: getComputedStyle(document.body).getPropertyValue('--chart-grid') } } } }
                 });
 
-                if (res.ok) {
-                    alert('操作成功！');
-                    closeModal();
-                    fetchData();
-                } else {
-                    const err = await res.json();
-                    alert('失敗: ' + (err.message || '未知錯誤'));
-                }
-
-            } catch (e) {
-                alert('連線錯誤');
-                console.error(e);
-            }
-        }
-
-        // 渲染工單
-        function renderWorkOrders(data) {
-             const container = document.getElementById('wo-container');
-            const activeOrders = data.filter(o => o.status !== 'Completed');
-            if (activeOrders.length === 0) {
-                container.innerHTML = '<div style="color:#666;">目前無生產中工單</div>';
-                return;
-            }
-            container.innerHTML = activeOrders.map(wo => {
-                const percent = wo.targetQty > 0 ? Math.min(100, Math.round((wo.currentQty / wo.targetQty) * 100)) : 0;
-                return `
-                <div class="wo-item">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                        <strong>${wo.orderNo} (${wo.product})</strong>
-                        <span>${wo.currentQty} / ${wo.targetQty} (${wo.status})</span>
-                    </div>
-                    <div class="progress-bg"><div class="progress-bar" style="width: ${percent}%"></div></div>
-                </div>`}).join('');
-        }
+                this.data.charts.quality = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Pass', 'Fail'],
+                        datasets: [{ data: [96, 4], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            },
+            updateChartsTheme() {
+				if(!this.data.charts.wip) return;
+    
+				// 使用 setTimeout 給瀏覽器一點時間完成 CSS 變數的切換渲染
+				setTimeout(() => {
+					const styles = getComputedStyle(document.body);
+					const gridColor = styles.getPropertyValue('--chart-grid').trim();
+					const textColor = styles.getPropertyValue('--chart-text').trim();
         
-        // 渲染 WIP
-        function renderWip(data) {
-            const container = document.getElementById('wip-container');
-            const stationMap = {};
-            data.forEach(w => { const name = w.stationName || `Station ${w.stationId}`; stationMap[name] = (stationMap[name] || 0) + w.quantity; });
-            const html = Object.keys(stationMap).map(stationName => {
-                const qty = stationMap[stationName];
-                const heightPercent = Math.min(100, (qty / 500) * 100); 
-                return `<div class="bar-container"><div class="bar-value">${qty}</div><div class="bar" style="height: ${heightPercent}%;"></div><div class="bar-label">${stationName}</div></div>`;
-            }).join('');
-            container.innerHTML = html || '<div style="width:100%; text-align:center;">尚無 WIP 資料</div>';
-        }
+					// 更新長條圖 (WIP)
+					if (this.data.charts.wip) {
+						this.data.charts.wip.options.scales.x.ticks.color = textColor;
+						this.data.charts.wip.options.scales.y.ticks.color = textColor;
+						this.data.charts.wip.options.scales.y.grid.color = gridColor;
+						this.data.charts.wip.update();
+					}
+
+					// 更新圓餅圖 (Quality) - 雖然沒有網格，但如果有圖例文字也可更新
+					if (this.data.charts.quality) {
+						// 如果圓餅圖有設定 legend 顏色，可在此處更新
+						this.data.charts.quality.update();
+					}
+				}, 50); // 延遲 50 毫秒
+            }
+        };
+
+        // Start App
+        document.addEventListener('DOMContentLoaded', () => App.init());
+
     </script>
 </body>
 </html>
