@@ -117,7 +117,6 @@ try
             Scheme = "bearer",              // 指定 Scheme
             BearerFormat = "JWT"
         });
-
         c.AddSecurityRequirement(new OpenApiSecurityRequirement
         {
         {
@@ -132,6 +131,10 @@ try
             new string[] { }
         }
         });
+        // [Day 19] 加入 XML 註解讀取
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        c.IncludeXmlComments(xmlPath);
     });
 
     // ==========================================

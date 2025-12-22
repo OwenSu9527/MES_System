@@ -4,12 +4,19 @@ using MES_System.WebAPI.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
 namespace MES_System.WebAPI.Controllers
 {
+    /// <summary>
+    /// 身份驗證控制器
+    /// </summary>
+    /// <remarks>
+    /// 負責處理使用者登入驗證與 JWT Token 的簽發。
+    /// </remarks>
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
@@ -28,11 +35,30 @@ namespace MES_System.WebAPI.Controllers
 
         public class LoginDto
         {
-            public string Username { get; set; }
-            public string Password { get; set; }
+            // 若前端傳來的 JSON 少了 Username，後端會直接擋掉並回傳 400
+            [StringLength(50, MinimumLength = 3)]
+            public required string Username { get; set; }
+
+            [StringLength(100, MinimumLength = 6)] // 限制密碼長度，避免過短或過長的無效嘗試
+            public required string Password { get; set; }
         }
 
+        /// <summary>
+        /// 使用者登入
+        /// </summary>
+        /// <remarks>
+        /// 驗證帳號密碼，成功後回傳含有 JWT Token 的物件。
+        /// 
+        /// 測試帳號: **admin**
+        /// 測試密碼: **admin123**
+        /// </remarks>
+        /// <param name="login">登入資訊 (帳號/密碼)</param>
+        /// <returns>JWT Token 與使用者資訊</returns>
+        /// <response code="200">登入成功，回傳 Token</response>
+        /// <response code="401">登入失敗 (帳號或密碼錯誤)</response>
         [HttpPost("login")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Login([FromBody] LoginDto login)
         {
             // [Day 17 優化] 1. 加入 Log: 記錄有人嘗試登入 (使用 Information 等級)

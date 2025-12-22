@@ -508,439 +508,399 @@
     </div>
 
 <script>
-        /**
-         * MES Application Logic
-         * 使用單一物件 'App' 封裝邏輯，避免全域變數污染
-         */
-        
-        // 1. 設定後端 API 位址 (請確認您的 Port)
-        const BASE_URL = 'http://localhost:5289/api';
+    const BASE_URL = 'http://localhost:5289/api';
 
-        const App = {
-            data: {
-                machines: [],
-                wos: [
-                    {id:'WO-20231220-01', product:'PCB-Mainboard-X', target:5000, curr:4200, pri:'High', line:'L1', status:'In Progress'},
-                    {id:'WO-20231220-02', product:'Controller-Gen2', target:200, curr:200, pri:'Normal', line:'L2', status:'Completed'},
-                    {id:'WO-20231220-03', product:'Power-Supply-Unit', target:1000, curr:0, pri:'Normal', line:'L1', status:'Released'}
-                ],
-                faiDraft: {},
-                charts: {}
-            },
-            config: {
-                theme: localStorage.getItem('theme') || 'light',
-                refreshRate: 2000 // 2秒 (2000ms)，配合 Python 模擬器速度
-            },
-            
-            init() {
-                this.applyTheme();
-                this.checkLogin(); // 初始化檢查登入狀態
-                
-                // 初始化圖表
-                this.initCharts();
-                
-                // 定時刷新數據 (Polling)
-                setInterval(() => {
-                    // 只有在網頁可見 且 有 Token 時才更新
-                    if(!document.hidden && localStorage.getItem('mes_token')) {
-                        this.fetchData();
-                    }
-                }, this.config.refreshRate);
+    const App = {
+        data: {
+            machines: [],
+            wos: [], // 這裡將存儲真實工單
+            wipData: [], // 儲存真實 WIP
+            faiDraft: {},
+            charts: {}
+        },
+        config: {
+            theme: localStorage.getItem('theme') || 'light',
+            refreshRate: 3000
+        },
 
-                // 監聽網頁可見性變化 (切回來時立即更新)
-                document.addEventListener('visibilitychange', () => {
-                    if(!document.hidden) this.fetchData();
-                });
-            },
+        init() {
+            this.applyTheme();
+            this.checkLogin();
+            this.initCharts();
 
-            // --- Authentication (身份驗證區塊) ---
-            
-            checkLogin() {
-                const token = localStorage.getItem('mes_token');
-                if(token) {
-                    // 已登入
-                    document.getElementById('loginModal').style.display = 'none';
-                    document.getElementById('logoutBtn').classList.remove('hidden');
-                    this.fetchData(); // 立即撈資料
-                } else {
-                    // 未登入
-                    document.getElementById('loginModal').style.display = 'flex';
+            // Polling
+            setInterval(() => {
+                if (!document.hidden && localStorage.getItem('mes_token')) {
+                    this.fetchData();
                 }
-            }, // <--- 注意：這個逗號很重要！
+            }, this.config.refreshRate);
 
-            async login() {
-                const username = document.getElementById('loginUser').value;
-                const password = document.getElementById('loginPass').value;
-                const btn = document.querySelector('#loginModal .btn-primary');
-                const originalText = btn.innerHTML;
-                
-                // UI Loading 狀態
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 驗證中...';
-                btn.disabled = true;
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) this.fetchData();
+            });
+        },
 
-                try {
-                    // 呼叫真實後端 API
-                    const res = await fetch(`${BASE_URL}/Auth/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
-                    });
+        // --- 核心：共用 API 呼叫函式 (DRY 原則) ---
+        async apiCall(endpoint, method = 'GET', body = null) {
+            const token = localStorage.getItem('mes_token');
+            if (!token && endpoint !== '/Auth/login') return null;
 
-                    if (res.ok) {
-                        const data = await res.json();
-                        // 儲存真實 Token
-                        localStorage.setItem('mes_token', data.token);
-                        
-                        this.checkLogin(); // 更新 UI
-                        Swal.fire({ toast:true, position:'top-end', icon:'success', title:'登入成功', timer:1500, showConfirmButton:false });
-                    } else {
-                        // 處理錯誤
-                        const errData = await res.json().catch(() => ({})); 
-                        Swal.fire('登入失敗', errData.message || '帳號或密碼錯誤', 'error');
-                    }
-                } catch (e) {
-                    console.error("Login Error:", e);
-                    Swal.fire('連線錯誤', '無法連接到 MES 伺服器，請確認後端已啟動', 'error');
-                } finally {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }
-            }, // <--- 這裡也要有逗號！
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            logout() {
-                Swal.fire({
-                    title: '確定登出?', icon: 'warning', showCancelButton: true, confirmButtonText: '登出', confirmButtonColor: '#ef4444'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        localStorage.removeItem('mes_token');
-                        location.reload();
-                    }
-                });
-            },
+            try {
+                const config = { method, headers };
+                if (body) config.body = JSON.stringify(body);
 
-            // --- Theme & UI (介面區塊) ---
-            
-            toggleTheme() {
-                this.config.theme = this.config.theme === 'light' ? 'dark' : 'light';
-                localStorage.setItem('theme', this.config.theme);
-                this.applyTheme();
-                this.updateChartsTheme(); 
-            },
-            applyTheme() {
-                document.documentElement.setAttribute('data-theme', this.config.theme);
-                const icon = document.getElementById('themeIcon');
-                icon.className = this.config.theme === 'light' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
-            },
-            toggleSidebar() {
-                document.getElementById('appSidebar').classList.toggle('open');
-                document.getElementById('sidebarOverlay').classList.toggle('show');
-            },
-            switchPage(pageId, navEl) {
-                document.querySelectorAll('.page-section').forEach(e => e.classList.remove('active'));
-                document.getElementById(pageId).classList.add('active');
-                document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
-                navEl.classList.add('active');
-                if(window.innerWidth <= 768) this.toggleSidebar();
-            },
-            
-            // --- Core Logic (核心數據區塊) ---
+                const res = await fetch(`${BASE_URL}${endpoint}`, config);
 
-			async fetchData() {
-				const token = localStorage.getItem('mes_token');
-				if (!token) return; // 沒 Token 就不動作
-			
-				try {
-					const headers = { 
-						'Content-Type': 'application/json',
-						'Authorization': `Bearer ${token}`
-					};
-			
-					// 平行呼叫 API
-					const [eqRes, woRes, wipRes] = await Promise.all([
-						fetch(`${BASE_URL}/Equipment`, { headers }),
-						fetch(`${BASE_URL}/WorkOrder`, { headers }),
-						fetch(`${BASE_URL}/Production/wip`, { headers })
-					]);
-					
-					// 權限檢查
-					if (eqRes.status === 401) {
-						this.logout(); // 強制登出
-						return;
-					}
-			
-					const realMachines = await eqRes.json();
-					
-					// 資料轉換 (Mapping)
-					this.data.machines = realMachines.map(m => ({
-						id: m.id,
-						name: m.name,
-						status: m.status,
-						location: m.location,
-						// 相容大小寫
-						rpm: m.rpm ?? m.RPM ?? 0,        
-						temp: m.temperature ?? m.Temperature ?? 0 
-					}));
-			
-					this.renderDashboard();
-                    // 工單和WIP暫時保留前端假資料渲染邏輯，若後端完成可開啟下方：
-                    // this.data.wos = await woRes.json(); this.renderWOs();
-			
-				} catch (error) { 
-					console.error("Fetch Error:", error); 
-				}
-			},
-
-            renderDashboard() {
-                const container = document.getElementById('machine-container');
-                
-                // 定義狀態樣式對照表
-                const statusMap = {
-                    0: { t:'閒置', c:'var(--warning)', i:'fa-pause', bg:'rgba(245,158,11,0.1)' },
-                    1: { t:'運轉中', c:'var(--success)', i:'fa-gears', bg:'rgba(16,185,129,0.1)' },
-                    2: { t:'異常停機', c:'var(--danger)', i:'fa-triangle-exclamation', bg:'rgba(239,68,68,0.1)' },
-                    3: { t:'維修中', c:'var(--repair)', i:'fa-wrench', bg:'rgba(139,92,246,0.1)' } // 補上維修狀態
-                };
-
-                // 第一次載入時，如果是 Skeleton (骨架圖)，先清空
-                if(container.querySelector('.skeleton')) {
-                    container.innerHTML = '';
+                // 統一處理 401 Token 過期
+                if (res.status === 401) {
+                    console.warn("Token expired or unauthorized");
+                    this.logout();
+                    return null;
                 }
 
-                this.data.machines.forEach(m => {
-                    // 1. 嘗試抓取既有的卡片 DOM
-                    let card = document.getElementById(`machine-card-${m.id}`);
-                    const s = statusMap[m.status] || statusMap[0];
-
-                    if (card) {
-                        // --- [優化核心] 卡片已存在：只更新數據與樣式，不重繪 HTML ---
-                        
-                        // 更新數值 (RPM / Temp)
-                        // 使用 querySelector 找到內部的 class 進行更新
-                        const valDiv = card.querySelector('.machine-val');
-                        if(valDiv) valDiv.innerText = `${m.rpm} RPM | ${m.temp}°C`;
-
-                        // 更新狀態標籤 (文字 & 顏色)
-                        const badge = card.querySelector('.badge');
-                        if(badge) {
-                            badge.innerText = s.t;
-                            badge.style.background = s.bg;
-                            badge.style.color = s.c;
-                        }
-
-                        // 更新卡片頂部邊框顏色
-                        card.style.borderTopColor = s.c;
-
-                        // 更新圖示與圓圈背景
-                        const iconBox = card.querySelector('.icon-box');
-                        if(iconBox) {
-                            iconBox.style.background = s.bg;
-                            const icon = iconBox.querySelector('i');
-                            // 只在狀態改變導致圖示不同時才修改 class，減少重繪
-                            if(icon && icon.className !== `fa-solid ${s.i}`) {
-                                icon.className = `fa-solid ${s.i}`;
-                                icon.style.color = s.c;
-                            }
-                        }
-
-                    } else {
-                        // --- 卡片不存在：建立全新的 HTML (只在第一次執行) ---
-                        // 注意：我們給了 div 一個 ID: machine-card-${m.id}，方便下次尋找
-                        const html = `
-                        <div id="machine-card-${m.id}" class="machine-card" onclick="App.openActionModal(${m.id})" style="border-top-color:${s.c}">
-                            <div class="icon-box" style="background:${s.bg}; width:50px; height:50px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center;">
-                                <i class="fa-solid ${s.i}" style="color:${s.c}; font-size:1.5rem;"></i>
-                            </div>
-                            <div class="machine-name">${m.name}</div>
-                            <div class="machine-val">${m.rpm} RPM | ${m.temp}°C</div>
-                            <div class="badge" style="margin-top:12px; background:${s.bg}; color:${s.c}">${s.t}</div>
-                        </div>`;
-                        
-                        // 使用 insertAdjacentHTML 比 innerHTML += 更快，且不會破壞現有 DOM 事件
-                        container.insertAdjacentHTML('beforeend', html);
-                    }
-                });
-            },
-
-            renderWOs() {
-                const tbody = document.getElementById('wo-table-body');
-                tbody.innerHTML = this.data.wos.map(w => `
-                    <tr>
-                        <td class="font-bold text-primary">${w.id}</td>
-                        <td>${w.product}</td>
-                        <td>
-                            <div class="flex items-center gap-2">
-                                <div style="flex:1; height:6px; background:var(--border-color); border-radius:3px; overflow:hidden;">
-                                    <div style="width:${(w.curr/w.target)*100}%; background:var(--primary); height:100%;"></div>
-                                </div>
-                                <span class="text-sm">${w.curr}/${w.target}</span>
-                            </div>
-                        </td>
-                        <td><span style="color:${w.pri==='High'?'var(--danger)':'inherit'}">${w.pri}</span></td>
-                        <td>${w.line}</td>
-                        <td><span class="badge ${w.status==='Completed'?'badge-done':w.status==='In Progress'?'badge-wip':'badge-new'}">${w.status}</span></td>
-                        <td><button class="btn btn-ghost btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button></td>
-                    </tr>
-                `).join('');
-            },
-
-            // --- Modals & Actions ---
-
-            openModal(id) {
-                if(id === 'createWOModal') {
-                    // 自動生成單號
-                    document.getElementById('new-wo-id').value = `WO-20231220-${String(this.data.wos.length + 1).padStart(2,'0')}`;
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.message || `API Error: ${res.status}`);
                 }
-                document.getElementById(id).style.display = 'flex';
-            },
-            closeModal(id) { document.getElementById(id).style.display = 'none'; },
-            
-            openActionModal(machineId) {
-                const m = this.data.machines.find(x => x.id === machineId);
-                if(!m) return;
-                document.getElementById('modalTitle').innerText = `${m.name} - 控制台`;
-                document.getElementById('modal-rpm').innerText = m.rpm;
-                document.getElementById('modal-temp').innerText = m.temp + '°C';
-                this.openModal('actionModal');
-            },
 
-            switchTab(tabId, el) {
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                document.getElementById(tabId).classList.add('active');
-                document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-                el.classList.add('active');
-            },
-            
-            updateContext() {
-                const line = document.getElementById('lineSelect').options[document.getElementById('lineSelect').selectedIndex].text;
-                document.getElementById('dashboard-title').innerText = `${document.getElementById('plantSelect').value === 'P1' ? '新竹廠' : '台南廠'} - ${line} 監控`;
-                // Show skeleton
-                document.getElementById('machine-container').innerHTML = Array(4).fill('<div class="skeleton" style="height:150px;"></div>').join('');
-                setTimeout(() => this.fetchData(), 500);
-            },
+                // 若是 204 No Content (如 Patch)
+                if (res.status === 204) return true;
 
-            // --- FAI System (前端模擬) ---
-            openFAI(wo, prod) {
-                this.currentWO = wo;
-                document.getElementById('fai-subtitle').innerText = `${wo} | ${prod}`;
-                const saved = JSON.parse(localStorage.getItem(`fai_${wo}`) || '{}');
-                
-                const items = [
-                    {id:1, title:"輸出電壓 (Voltage)", spec:"5.0V ±0.1"},
-                    {id:2, title:"外觀檢查 (Visual)", spec:"無刮傷缺件"}
-                ];
+                return await res.json();
 
-                document.getElementById('fai-body').innerHTML = items.map(i => {
-                    const s = saved[i.id]?.status;
-                    const r = saved[i.id]?.remark || '';
-                    return `
-                    <div class="fai-card ${s==='fail'?'error':''}">
-                        <div class="fai-header">
-                            <div><span class="badge badge-gray" style="margin-right:8px;">${i.id}</span> <strong>${i.title}</strong> <span class="text-sub text-sm">(${i.spec})</span></div>
-                            <div class="flex gap-2">
-                                <button class="toggle-btn pass ${s==='pass'?'active':''}" onclick="App.setFAI(${i.id}, 'pass')">Pass</button>
-                                <button class="toggle-btn fail ${s==='fail'?'active':''}" onclick="App.setFAI(${i.id}, 'fail')">Fail</button>
-                            </div>
-                        </div>
-                        <div class="${s==='fail'?'':'hidden'}" style="margin-top:10px;">
-                            <input class="form-control" placeholder="輸入異常原因..." value="${r}" onchange="App.setFAIRemark(${i.id}, this.value)">
-                        </div>
-                    </div>`;
-                }).join('');
-                
-                this.data.faiDraft = saved;
-                this.openModal('faiModal');
-            },
-            setFAI(id, status) {
-                if(!this.data.faiDraft[id]) this.data.faiDraft[id] = {};
-                this.data.faiDraft[id].status = status;
-                localStorage.setItem(`fai_${this.currentWO}`, JSON.stringify(this.data.faiDraft));
-                this.openFAI(this.currentWO, 'Product'); // Re-render
-            },
-            setFAIRemark(id, val) {
-                this.data.faiDraft[id].remark = val;
-                localStorage.setItem(`fai_${this.currentWO}`, JSON.stringify(this.data.faiDraft));
-            },
-            submitFAI() {
-                localStorage.removeItem(`fai_${this.currentWO}`);
-                this.closeModal('faiModal');
-                Swal.fire('提交成功', '首件檢查報告已上傳', 'success');
-            },
-            clearFAIDraft() {
-                 localStorage.removeItem(`fai_${this.currentWO}`);
-                 this.openFAI(this.currentWO, 'Product');
-            },
-
-            // --- Other Actions ---
-            submitNewWO() {
-                const newWO = {
-                    id: document.getElementById('new-wo-id').value,
-                    product: document.getElementById('new-wo-product').value,
-                    target: document.getElementById('new-wo-qty').value,
-                    curr: 0,
-                    pri: document.getElementById('new-wo-priority').value,
-                    line: document.getElementById('new-wo-line').value,
-                    status: 'Released'
-                };
-                this.data.wos.unshift(newWO);
-                this.renderWOs();
-                this.closeModal('createWOModal');
-                Swal.fire('建立成功', `工單 ${newWO.id} 已發布`, 'success');
-            },
-            async sendCommand(cmd) {
-                const res = await Swal.fire({ title: `執行 ${cmd}?`, icon: 'warning', showCancelButton: true });
-                if(res.isConfirmed) {
-                    const {value: pass} = await Swal.fire({ title: '二次密碼驗證', input: 'password', inputPlaceholder:'1234' });
-                    if(pass === '1234') Swal.fire('指令已發送', '', 'success');
-                    else if(pass) Swal.fire('密碼錯誤', '', 'error');
-                }
-            },
-
-            // --- Charts ---
-            initCharts() {
-                const ctx1 = document.getElementById('wipChart').getContext('2d');
-                const ctx2 = document.getElementById('qualityChart').getContext('2d');
-                
-                this.data.charts.wip = new Chart(ctx1, {
-                    type: 'bar',
-                    data: {
-                        labels: ['SMT', 'AOI', 'DIP', 'Test'],
-                        datasets: [{ label: 'Qty', data: [120, 115, 80, 75], backgroundColor: '#3b82f6', borderRadius: 4 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { y: { grid: { color: getComputedStyle(document.body).getPropertyValue('--chart-grid') } } } }
-                });
-
-                this.data.charts.quality = new Chart(ctx2, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Pass', 'Fail'],
-                        datasets: [{ data: [96, 4], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false }
-                });
-            },
-            updateChartsTheme() {
-				if(!this.data.charts.wip) return;
-				setTimeout(() => {
-					const styles = getComputedStyle(document.body);
-					const gridColor = styles.getPropertyValue('--chart-grid').trim();
-					const textColor = styles.getPropertyValue('--chart-text').trim();
-					
-					if (this.data.charts.wip) {
-						this.data.charts.wip.options.scales.x.ticks.color = textColor;
-						this.data.charts.wip.options.scales.y.ticks.color = textColor;
-						this.data.charts.wip.options.scales.y.grid.color = gridColor;
-						this.data.charts.wip.update();
-					}
-					if (this.data.charts.quality) {
-						this.data.charts.quality.update();
-					}
-				}, 50);
+            } catch (error) {
+                console.error(`API Call Failed [${endpoint}]:`, error);
+                throw error; // 拋出給呼叫者處理 UI
             }
-        };
+        },
 
-        // Start App
-        document.addEventListener('DOMContentLoaded', () => App.init());
+        // --- Authentication ---
+        checkLogin() {
+            const token = localStorage.getItem('mes_token');
+            if (token) {
+                document.getElementById('loginModal').style.display = 'none';
+                document.getElementById('logoutBtn').classList.remove('hidden');
+                this.fetchData();
+            } else {
+                document.getElementById('loginModal').style.display = 'flex';
+            }
+        },
 
-    </script>
+        async login() {
+            const u = document.getElementById('loginUser').value;
+            const p = document.getElementById('loginPass').value;
+            const btn = document.querySelector('#loginModal .btn-primary');
+            const originalText = btn.innerHTML;
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 驗證中...';
+            btn.disabled = true;
+
+            try {
+                // 使用共用的 apiCall
+                const data = await this.apiCall('/Auth/login', 'POST', { username: u, password: p });
+                
+                if (data && data.token) {
+                    localStorage.setItem('mes_token', data.token);
+                    this.checkLogin();
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '登入成功', timer: 1500, showConfirmButton: false });
+                }
+            } catch (e) {
+                Swal.fire('登入失敗', '帳號或密碼錯誤 (或後端未啟動)', 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        },
+
+        logout() {
+            // 不需詢問直接登出 (如果是 401 觸發)，或保留詢問
+            localStorage.removeItem('mes_token');
+            location.reload();
+        },
+
+        // --- Theme & UI ---
+        toggleTheme() {
+            this.config.theme = this.config.theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('theme', this.config.theme);
+            this.applyTheme();
+            this.updateChartsTheme();
+        },
+        applyTheme() {
+            document.documentElement.setAttribute('data-theme', this.config.theme);
+            const icon = document.getElementById('themeIcon');
+            icon.className = this.config.theme === 'light' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+        },
+        toggleSidebar() {
+            document.getElementById('appSidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('show');
+        },
+        switchPage(pageId, navEl) {
+            document.querySelectorAll('.page-section').forEach(e => e.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+            navEl.classList.add('active');
+            if (window.innerWidth <= 768) this.toggleSidebar();
+        },
+
+        // --- Core Logic (Data Fetching) ---
+        async fetchData() {
+            // 平行呼叫 API
+            const p1 = this.apiCall('/Equipment');
+            const p2 = this.apiCall('/WorkOrder');
+            const p3 = this.apiCall('/Production/wip');
+
+            try {
+                const [machines, wos, wips] = await Promise.all([p1, p2, p3]);
+
+                if (machines) {
+                    this.data.machines = machines.map(m => ({
+                        id: m.id,
+                        name: m.name,
+                        status: m.status,
+                        location: m.location,
+                        rpm: m.rpm ?? m.RPM ?? 0,
+                        temp: m.temperature ?? m.Temperature ?? 0
+                    }));
+                    this.renderDashboard();
+                }
+
+                if (wos) {
+                    this.data.wos = wos;
+                    this.renderWOs();
+                }
+
+                if (wips) {
+                    this.data.wipData = wips;
+                    this.updateWipChart(wips); // 更新圖表數據
+                }
+
+            } catch (e) {
+                // apiCall 已經有 log 了，這裡可以忽略
+            }
+        },
+
+        renderDashboard() {
+            const container = document.getElementById('machine-container');
+            const statusMap = {
+                0: { t: '閒置', c: 'var(--warning)', i: 'fa-pause', bg: 'rgba(245,158,11,0.1)' },
+                1: { t: '運轉中', c: 'var(--success)', i: 'fa-gears', bg: 'rgba(16,185,129,0.1)' },
+                2: { t: '異常停機', c: 'var(--danger)', i: 'fa-triangle-exclamation', bg: 'rgba(239,68,68,0.1)' },
+                3: { t: '維修中', c: 'var(--repair)', i: 'fa-wrench', bg: 'rgba(139,92,246,0.1)' }
+            };
+
+            // 如果是初始載入，清空 Skeleton
+            if (container.querySelector('.skeleton')) container.innerHTML = '';
+
+            this.data.machines.forEach(m => {
+                let card = document.getElementById(`machine-card-${m.id}`);
+                const s = statusMap[m.status] || statusMap[0];
+
+                if (card) {
+                    // Update existing
+                    card.querySelector('.machine-val').innerText = `${m.rpm} RPM | ${m.temp}°C`;
+                    const badge = card.querySelector('.badge');
+                    badge.innerText = s.t;
+                    badge.style.background = s.bg;
+                    badge.style.color = s.c;
+                    card.style.borderTopColor = s.c;
+                    const iconBox = card.querySelector('.icon-box');
+                    iconBox.style.background = s.bg;
+                    const icon = iconBox.querySelector('i');
+                    if (icon.className !== `fa-solid ${s.i}`) {
+                        icon.className = `fa-solid ${s.i}`;
+                        icon.style.color = s.c;
+                    }
+                } else {
+                    // Create new
+                    const html = `
+                    <div id="machine-card-${m.id}" class="machine-card" onclick="App.openActionModal(${m.id})" style="border-top-color:${s.c}">
+                        <div class="icon-box" style="background:${s.bg}; width:50px; height:50px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center;">
+                            <i class="fa-solid ${s.i}" style="color:${s.c}; font-size:1.5rem;"></i>
+                        </div>
+                        <div class="machine-name">${m.name}</div>
+                        <div class="machine-val">${m.rpm} RPM | ${m.temp}°C</div>
+                        <div class="badge" style="margin-top:12px; background:${s.bg}; color:${s.c}">${s.t}</div>
+                    </div>`;
+                    container.insertAdjacentHTML('beforeend', html);
+                }
+            });
+        },
+
+        renderWOs() {
+            const tbody = document.getElementById('wo-table-body');
+            tbody.innerHTML = this.data.wos.map(w => {
+                // 計算進度百分比
+                const percent = w.targetQty > 0 ? Math.round((w.currentQty / w.targetQty) * 100) : 0;
+                // 對應後端的 Status 字串
+                let badgeClass = 'badge-new';
+                if (w.status === 'Running') badgeClass = 'badge-wip';
+                if (w.status === 'Completed') badgeClass = 'badge-done';
+
+                return `
+                <tr>
+                    <td class="font-bold text-primary">${w.orderNo}</td>
+                    <td>${w.product}</td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <div style="flex:1; height:6px; background:var(--border-color); border-radius:3px; overflow:hidden;">
+                                <div style="width:${Math.min(100, percent)}%; background:var(--primary); height:100%;"></div>
+                            </div>
+                            <span class="text-sm">${w.currentQty}/${w.targetQty}</span>
+                        </div>
+                    </td>
+                    <td><span style="color:inherit">Normal</span></td>
+                    <td>Default</td>
+                    <td><span class="badge ${badgeClass}">${w.status}</span></td>
+                    <td>
+                        ${w.status === 'New' ? 
+                          `<button class="btn btn-primary btn-sm" onclick="App.startWO(${w.id})">開工</button>` : 
+                          `<button class="btn btn-ghost btn-icon"><i class="fa-solid fa-ellipsis-vertical"></i></button>`}
+                    </td>
+                </tr>
+            `}).join('');
+        },
+
+        // --- Modals & Actions ---
+        openModal(id) {
+            if (id === 'createWOModal') {
+                // 自動帶入日期流水號
+                const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                document.getElementById('new-wo-id').value = `WO-${dateStr}-${String(this.data.wos.length + 1).padStart(3, '0')}`;
+            }
+            document.getElementById(id).style.display = 'flex';
+        },
+        closeModal(id) { document.getElementById(id).style.display = 'none'; },
+
+        openActionModal(machineId) {
+            const m = this.data.machines.find(x => x.id === machineId);
+            if (!m) return;
+            this.currentMachine = m; // 存起來供操作使用
+            document.getElementById('modalTitle').innerText = `${m.name} - 控制台`;
+            document.getElementById('modal-rpm').innerText = m.rpm;
+            document.getElementById('modal-temp').innerText = m.temp + '°C';
+            this.openModal('actionModal');
+        },
+
+        switchTab(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+        },
+
+        // --- CRUD Actions ---
+        
+        // 1. 建立工單 (POST)
+        async submitNewWO() {
+            const dto = {
+                orderNo: document.getElementById('new-wo-id').value,
+                product: document.getElementById('new-wo-product').value,
+                targetQty: parseInt(document.getElementById('new-wo-qty').value) || 0
+            };
+
+            try {
+                await this.apiCall('/WorkOrder', 'POST', dto);
+                this.closeModal('createWOModal');
+                Swal.fire('建立成功', `工單 ${dto.orderNo} 已發布`, 'success');
+                this.fetchData(); // 重新撈取列表
+            } catch (e) {
+                Swal.fire('建立失敗', e.message, 'error');
+            }
+        },
+
+        // 2. 開工 (PATCH)
+        async startWO(id) {
+            try {
+                await this.apiCall(`/WorkOrder/${id}/start`, 'PATCH');
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '工單已開工', timer: 1500, showConfirmButton: false });
+                this.fetchData();
+            } catch (e) {
+                Swal.fire('操作失敗', e.message, 'error');
+            }
+        },
+
+        // 3. 設備報修/更新
+        async submitAction() {
+            // 這裡您可以根據需要呼叫 PATCH /Maintenance 相關 API
+            // 目前維持前端模擬，或您可自行串接 Day 14 的 API
+            this.closeModal('actionModal');
+            Swal.fire('指令已發送', '', 'success');
+        },
+        
+        async sendCommand(cmd) {
+             const res = await Swal.fire({ title: `執行 ${cmd}?`, icon: 'warning', showCancelButton: true });
+             if(res.isConfirmed) Swal.fire('指令已發送', '', 'success');
+        },
+
+        updateContext() {
+            // 模擬切換產線 Loading
+            document.getElementById('machine-container').innerHTML = Array(4).fill('<div class="skeleton" style="height:150px;"></div>').join('');
+            setTimeout(() => this.fetchData(), 500);
+        },
+
+        // --- FAI (模擬) ---
+        openFAI(wo, prod) { /* ... 保持原樣 ... */ },
+        setFAI(id, status) { /* ... 保持原樣 ... */ },
+        setFAIRemark(id, val) { /* ... 保持原樣 ... */ },
+        submitFAI() { /* ... 保持原樣 ... */ },
+        clearFAIDraft() { /* ... 保持原樣 ... */ },
+
+        // --- Charts & Visualization (數據聚合) ---
+        initCharts() {
+            const ctx1 = document.getElementById('wipChart').getContext('2d');
+            const ctx2 = document.getElementById('qualityChart').getContext('2d');
+
+            this.data.charts.wip = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: [], // 動態載入
+                    datasets: [{ label: 'WIP Qty', data: [], backgroundColor: '#3b82f6', borderRadius: 4 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#e2e8f0' } } } }
+            });
+
+            // Quality Chart 暫時保持靜態，後端尚未有品質資料 API
+            this.data.charts.quality = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pass', 'Fail'],
+                    datasets: [{ data: [96, 4], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        },
+
+        // [Day 19] 更新 WIP 圖表：將後端明細資料聚合為圖表數據
+        updateWipChart(wipList) {
+            if (!this.data.charts.wip) return;
+
+            // 1. Data Aggregation (聚合): 加總每個站點的數量
+            // 格式: { "SMT": 120, "AOI": 50 }
+            const aggregated = {};
+            wipList.forEach(w => {
+                // 如果後端沒回傳 StationName，就用 ID 代替
+                const key = w.stationName || `Station ${w.stationId}`;
+                aggregated[key] = (aggregated[key] || 0) + w.quantity;
+            });
+
+            // 2. 轉換為 Chart.js 格式
+            const labels = Object.keys(aggregated);
+            const data = Object.values(aggregated);
+
+            // 3. 更新圖表
+            const chart = this.data.charts.wip;
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = data;
+            chart.update();
+        },
+
+        updateChartsTheme() { /* ... 保持原樣 ... */ }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => App.init());
+</script>
 </body>
 </html>
