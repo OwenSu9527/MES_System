@@ -8,13 +8,20 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using MES_System.Infrastructure;
+
+using MES_System.WebAPI; // 引用 SystemTrayManager
 using MES_System.WebAPI.Middleware; // 稍後建立
 using Serilog; // [Day 17]
+using System.Windows.Forms; // [Day 21]
+
+// 手動初始化 UI 樣式
+System.Windows.Forms.Application.EnableVisualStyles();
+System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
 
 // [Day 17] 1. 在 Builder 建立前，先設定 Serilog
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
+    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day) // 確保有檔案 Log，因為 Console 看不到了
     .CreateBootstrapLogger(); // 建立啟動階段的 Logger
 
 //var builder = WebApplication.CreateBuilder(args);
@@ -176,8 +183,21 @@ try
 
     app.MapControllers(); // 映射控制器路由
 
-    // 啟動程式
-    app.Run();
+    // [Day 21] 關鍵修改：並行執行 WebAPI 與 System Tray
+
+    // 1. 啟動 System Tray 管理器
+    // 這裡我們手動建立，因為它依賴 Windows Forms 執行緒
+    var trayManager = new SystemTrayManager(app.Lifetime);
+
+    // 2. 在背景 Task 中啟動 WebAPI
+    // 我們使用 app.RunAsync() 而不是 app.Run()，避免卡住主執行緒
+    var webTask = app.RunAsync();
+
+    // 3. 啟動 Windows Forms 訊息迴圈 (這會卡住主執行緒，直到 Application.Exit 被呼叫)
+    System.Windows.Forms.Application.Run();
+
+    // 當 Application.Run() 結束後 (使用者輸入密碼關閉)，等待 WebAPI 正常關閉
+    await webTask;
 }
 catch (Exception ex)
 {
