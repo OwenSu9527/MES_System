@@ -1,0 +1,44 @@
+﻿<Window x:Class="MES_System.Client.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MES 戰情監控中心 (WPF)" Height="450" Width="800" WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Background="#336666" Padding="15">
+            <TextBlock Text="產線設備即時監控" Foreground="	#B3D9D9" FontSize="18" FontWeight="Bold"/>
+        </Border>
+
+        <DataGrid x:Name="gridEquipments" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" Margin="10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="設備名稱" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="位置" Binding="{Binding Location}" Width="*"/>
+
+                <DataGridTextColumn Header="轉速 (RPM)" Binding="{Binding RPM}" Width="100"/>
+
+                <DataGridTextColumn Header="溫度 (°C)" Binding="{Binding Temperature}" Width="100"/>
+
+                <DataGridTemplateColumn Header="狀態" Width="150">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding StatusColor}" CornerRadius="5" Padding="5,2">
+                                <TextBlock Text="{Binding StatusText}" Foreground="White" HorizontalAlignment="Center"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock x:Name="txtStatus" Text="系統就緒，等待數據同步..."/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

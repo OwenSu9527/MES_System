@@ -72,7 +72,7 @@ namespace MES_System.WebAPI
                 MaximizeBox = false
             };
 
-            Label textLabel = new Label() { Left = 20, Top = 20, Text = "請輸入管理員密碼:" };
+            Label textLabel = new Label() { Left = 20, Top = 20, Text = "請輸入管理員密碼:", AutoSize = true };
             TextBox inputBox = new TextBox() { Left = 20, Top = 50, Width = 240, PasswordChar = '*' };
             Button confirmation = new Button() { Text = "確定", Left = 160, Width = 100, Top = 90, DialogResult = DialogResult.OK };
 
