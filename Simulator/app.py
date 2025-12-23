@@ -19,7 +19,7 @@ PASSWORD = "admin123"
 
 # 定義 5 台機台的行為模式
 # Status: 1=Running, 0=Idle, 2=Down, 3=Repair
-machines = [
+equipments = [
     {"id": 1, "name": "SMT-01", "status": 1, "base_rpm": 1200, "base_temp": 45},
     {"id": 2, "name": "AOI-01", "status": 1, "base_rpm": 800,  "base_temp": 38},
     {"id": 3, "name": "Reflow", "status": 1, "base_rpm": 100,  "base_temp": 240},
@@ -65,7 +65,7 @@ def simulate_factory():
 
     while True:
         try:
-            for m in machines:
+            for m in equipments:
                 # 模擬數據波動
                 current_rpm = 0
                 current_temp = 25.0
