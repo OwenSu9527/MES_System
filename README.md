@@ -1,4 +1,5 @@
-2025/12/24 首次上傳
+2025/12/24
+
 系統架構：
 <img width="1615" height="1017" alt="系統架構圖 - 目前進度" src="https://github.com/user-attachments/assets/5648ba5f-e87d-4980-86a5-d2bd789a8640" />
 
