@@ -1,4 +1,4 @@
-2025/12/24
+2025/12/24 首發
 
 畫面截圖：
 
@@ -13,3 +13,12 @@ Login -
 
 WPF - 
 <img width="984" height="555" alt="MES 戰情監控中心 (WPF)" src="https://github.com/user-attachments/assets/afec6e56-9d33-4632-98e3-3edde8c9422a" />
+
+系統架構：
+<img width="1615" height="1017" alt="系統架構圖 - 目前進度" src="https://github.com/user-attachments/assets/5648ba5f-e87d-4980-86a5-d2bd789a8640" />
+
+
+2025/12/31 更新
+
+擴充規劃：
+<img width="1615" height="1858" alt="系統架構圖 - 預計規劃" src="https://github.com/user-attachments/assets/9149bac7-0076-4eec-a2ba-4e785915115b" />
